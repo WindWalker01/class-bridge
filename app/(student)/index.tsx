@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -10,6 +11,7 @@ import {
 
 import { Screen, ThemedText } from "@/components";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import { useAuth } from "@/hooks/useAuth";
 import { useStudentClasses } from "@/hooks/useClasses";
 import { Routes } from "@/lib/navigation";
 import type { ClassWithTeacher } from "@/types";
@@ -17,7 +19,21 @@ import type { ClassWithTeacher } from "@/types";
 export default function StudentHomeScreen() {
   const accent = getAccent("student");
   const router = useRouter();
+  const { signOut } = useAuth();
   const { classes, loading, refreshing, refresh } = useStudentClasses();
+
+  const handleSignOut = useCallback(() => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: () => {
+          void signOut();
+        },
+      },
+    ]);
+  }, [signOut]);
 
   // Refresh when screen comes into focus (e.g. after joining a class)
   useFocusEffect(
@@ -141,22 +157,40 @@ export default function StudentHomeScreen() {
               {classes.length} {classes.length === 1 ? "class" : "classes"}
             </ThemedText>
           </View>
-          <Pressable
-            onPress={() => router.push(Routes.studentJoinClass)}
-            style={{
-              backgroundColor: accent.accentSoft,
-              borderRadius: radii.pill,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-            }}
-          >
-            <ThemedText
-              variant="small"
-              style={{ color: accent.accentText, fontWeight: "600" }}
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <Pressable
+              onPress={() => router.push(Routes.studentJoinClass)}
+              style={{
+                backgroundColor: accent.accentSoft,
+                borderRadius: radii.pill,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+              }}
             >
-              + Join
-            </ThemedText>
-          </Pressable>
+              <ThemedText
+                variant="small"
+                style={{ color: accent.accentText, fontWeight: "600" }}
+              >
+                + Join
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={handleSignOut}
+              style={{
+                backgroundColor: accent.accentSoft,
+                borderRadius: radii.pill,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+              }}
+            >
+              <ThemedText
+                variant="small"
+                style={{ color: accent.accentText, fontWeight: "600" }}
+              >
+                Sign Out
+              </ThemedText>
+            </Pressable>
+          </View>
         </View>
 
         {/* Class list */}

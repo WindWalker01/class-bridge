@@ -265,6 +265,7 @@ export type RootStackParamList = {
   "(auth)/sign-in": undefined;
   "(auth)/sign-up": undefined;
   "(auth)/forgot-password": undefined;
+  "(auth)/verify-otp": undefined;
   "(auth)/reset-password": undefined;
   "(auth)/email-confirmation": undefined;
   "(auth)/role-selection": undefined;

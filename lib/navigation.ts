@@ -13,6 +13,7 @@ export const Routes = {
   signIn: "/(auth)/sign-in" as Href,
   signUp: "/(auth)/sign-up" as Href,
   forgotPassword: "/(auth)/forgot-password" as Href,
+  verifyOtp: "/(auth)/verify-otp" as Href,
   resetPassword: "/(auth)/reset-password" as Href,
   roleSelection: "/(auth)/role-selection" as Href,
   profileSetup: "/(auth)/profile-setup" as Href,

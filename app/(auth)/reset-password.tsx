@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
@@ -32,6 +32,24 @@ export default function ResetPasswordScreen() {
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // Verify that we have a valid session (set by OTP verification)
+  useEffect(() => {
+    async function checkSession() {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error || !data.session) {
+        setServerError(
+          "No active session. Please request a new password reset code.",
+        );
+      }
+
+      setCheckingSession(false);
+    }
+
+    void checkSession();
+  }, []);
 
   const {
     handleSubmit,
@@ -56,6 +74,17 @@ export default function ResetPasswordScreen() {
 
     setSuccess(true);
   };
+
+  if (checkingSession) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, justifyContent: "center", gap: spacing.md }}>
+          <ThemedText variant="title">Checking session...</ThemedText>
+          <ThemedText muted>Please wait a moment.</ThemedText>
+        </View>
+      </Screen>
+    );
+  }
 
   if (success) {
     return (
@@ -83,48 +112,59 @@ export default function ResetPasswordScreen() {
         <ThemedText muted>Enter your new password below.</ThemedText>
 
         {serverError ? (
-          <ThemedText style={{ color: "#dc2626" }}>{serverError}</ThemedText>
+          <View style={{ gap: spacing.sm }}>
+            <ThemedText style={{ color: "#dc2626" }}>{serverError}</ThemedText>
+            <Button
+              variant="ghost"
+              label="Request new reset code"
+              onPress={() => router.replace(Routes.forgotPassword)}
+            />
+          </View>
         ) : null}
 
-        <TextField
-          label="New password"
-          placeholder="••••••••"
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-          error={errors.password?.message}
-          onChangeText={(text) =>
-            setValue("password", text, { shouldValidate: true })
-          }
-        />
-        <Button
-          variant="ghost"
-          label={showPassword ? "Hide password" : "Show password"}
-          onPress={() => setShowPassword((prev) => !prev)}
-        />
+        {!serverError ? (
+          <>
+            <TextField
+              label="New password"
+              placeholder="••••••••"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              error={errors.password?.message}
+              onChangeText={(text) =>
+                setValue("password", text, { shouldValidate: true })
+              }
+            />
+            <Button
+              variant="ghost"
+              label={showPassword ? "Hide password" : "Show password"}
+              onPress={() => setShowPassword((prev) => !prev)}
+            />
 
-        <TextField
-          label="Confirm new password"
-          placeholder="••••••••"
-          secureTextEntry={!showConfirm}
-          autoCapitalize="none"
-          error={errors.confirmPassword?.message}
-          onChangeText={(text) =>
-            setValue("confirmPassword", text, { shouldValidate: true })
-          }
-        />
-        <Button
-          variant="ghost"
-          label={showConfirm ? "Hide password" : "Show password"}
-          onPress={() => setShowConfirm((prev) => !prev)}
-        />
+            <TextField
+              label="Confirm new password"
+              placeholder="••••••••"
+              secureTextEntry={!showConfirm}
+              autoCapitalize="none"
+              error={errors.confirmPassword?.message}
+              onChangeText={(text) =>
+                setValue("confirmPassword", text, { shouldValidate: true })
+              }
+            />
+            <Button
+              variant="ghost"
+              label={showConfirm ? "Hide password" : "Show password"}
+              onPress={() => setShowConfirm((prev) => !prev)}
+            />
 
-        <Button
-          label="Reset password"
-          fullWidth
-          loading={isSubmitting}
-          disabled={!isValid}
-          onPress={() => void handleSubmit(onSubmit)()}
-        />
+            <Button
+              label="Reset password"
+              fullWidth
+              loading={isSubmitting}
+              disabled={!isValid}
+              onPress={() => void handleSubmit(onSubmit)()}
+            />
+          </>
+        ) : null}
       </View>
     </Screen>
   );

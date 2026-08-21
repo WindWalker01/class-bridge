@@ -10,10 +10,17 @@ import { useAuthStore } from "@/store/useAuthStore";
 export default function Index() {
   const session = useAuthStore((state) => state.session);
   const profile = useAuthStore((state) => state.profile);
+  const profileLoading = useAuthStore((state) => state.profileLoading);
 
   // Not authenticated → sign in
   if (!session) {
     return <Redirect href={Routes.signIn} />;
+  }
+
+  // Profile fetch is still in flight (e.g. right after sign-in) — wait before
+  // deciding where to route so we never flash the onboarding screens.
+  if (profileLoading && !profile) {
+    return null;
   }
 
   // Authenticated but no profile yet (shouldn't happen with trigger, but guard)

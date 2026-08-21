@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { View } from "react-native";
@@ -18,7 +18,6 @@ type ForgotForm = z.infer<typeof forgotSchema>;
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const [sent, setSent] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -33,44 +32,26 @@ export default function ForgotPasswordScreen() {
   const onSubmit = async (form: ForgotForm) => {
     setServerError(null);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
-      redirectTo: "classbridge://reset-password",
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(form.email);
 
     if (error) {
       setServerError(error.message);
       return;
     }
 
-    setSent(true);
-  };
-
-  if (sent) {
-    return (
-      <Screen>
-        <View style={{ flex: 1, justifyContent: "center", gap: spacing.md }}>
-          <ThemedText variant="title">Check your email</ThemedText>
-          <ThemedText muted>
-            If an account with that email exists, we've sent a password reset
-            link. Follow the instructions in the email to reset your password.
-          </ThemedText>
-          <Button
-            label="Back to sign in"
-            fullWidth
-            onPress={() => router.replace(Routes.signIn)}
-          />
-        </View>
-      </Screen>
+    // Navigate to OTP verification screen
+    router.push(
+      `/(auth)/verify-otp?email=${encodeURIComponent(form.email)}` as Href,
     );
-  }
+  };
 
   return (
     <Screen>
       <View style={{ flex: 1, justifyContent: "center", gap: spacing.md }}>
         <ThemedText variant="title">Forgot password?</ThemedText>
         <ThemedText muted>
-          Enter your email address and we'll send you a link to reset your
-          password.
+          Enter your email address and we'll send you a 6-digit code to reset
+          your password.
         </ThemedText>
 
         {serverError ? (
@@ -90,7 +71,7 @@ export default function ForgotPasswordScreen() {
         />
 
         <Button
-          label="Send reset link"
+          label="Send reset code"
           fullWidth
           loading={isSubmitting}
           disabled={!isValid}

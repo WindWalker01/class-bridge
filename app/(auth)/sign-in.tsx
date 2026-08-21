@@ -108,12 +108,6 @@ export default function SignInScreen() {
 
         <Button
           variant="ghost"
-          label="Forgot password?"
-          onPress={() => router.push(Routes.forgotPassword)}
-        />
-
-        <Button
-          variant="ghost"
           label="Don't have an account? Sign up"
           onPress={() => router.replace(Routes.signUp)}
         />

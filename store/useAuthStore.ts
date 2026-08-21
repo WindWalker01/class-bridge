@@ -7,6 +7,8 @@ interface AuthState {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
+  /** True while a profile fetch is in flight (e.g. right after sign-in). */
+  profileLoading: boolean;
   loading: boolean;
   hasInitialized: boolean;
 
@@ -37,6 +39,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
   profile: null,
+  profileLoading: false,
   loading: true,
   hasInitialized: false,
 
@@ -61,6 +64,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   fetchProfile: async (userId: string) => {
+    set({ profileLoading: true });
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -70,12 +74,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (error) {
         console.error("[class-bridge] Failed to fetch profile", error);
+        set({ profile: null, profileLoading: false });
         return;
       }
 
-      set({ profile: data as Profile });
+      set({ profile: data as Profile, profileLoading: false });
     } catch (error) {
       console.error("[class-bridge] Failed to fetch profile", error);
+      set({ profile: null, profileLoading: false });
     }
   },
 
@@ -113,6 +119,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({
       session,
       user: session?.user ?? null,
+      profileLoading: !!session?.user,
     });
 
     if (session?.user) {
@@ -123,6 +130,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   reset: () => {
-    set({ session: null, user: null, profile: null });
+    set({ session: null, user: null, profile: null, profileLoading: false });
   },
 }));

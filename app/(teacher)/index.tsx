@@ -2,6 +2,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -10,13 +11,28 @@ import {
 
 import { Screen, ThemedText } from "@/components";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import { useAuth } from "@/hooks/useAuth";
 import { useTeacherClasses } from "@/hooks/useClasses";
 import { Routes } from "@/lib/navigation";
 import type { ClassWithCount } from "@/types";
 
 export default function TeacherHomeScreen() {
   const accent = getAccent("teacher");
+  const { signOut } = useAuth();
   const { classes, loading, refreshing, refresh } = useTeacherClasses();
+
+  const handleSignOut = useCallback(() => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: () => {
+          void signOut();
+        },
+      },
+    ]);
+  }, [signOut]);
 
   // Refresh when screen comes into focus (e.g. after creating a class)
   useFocusEffect(
@@ -124,6 +140,22 @@ export default function TeacherHomeScreen() {
               {classes.length} {classes.length === 1 ? "class" : "classes"}
             </ThemedText>
           </View>
+          <Pressable
+            onPress={handleSignOut}
+            style={{
+              backgroundColor: accent.accentSoft,
+              borderRadius: radii.pill,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+            }}
+          >
+            <ThemedText
+              variant="small"
+              style={{ color: accent.accentText, fontWeight: "600" }}
+            >
+              Sign Out
+            </ThemedText>
+          </Pressable>
         </View>
 
         {/* Class list */}
