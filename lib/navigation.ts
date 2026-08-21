@@ -22,6 +22,12 @@ export const Routes = {
   teacher: "/(teacher)" as Href,
   student: "/(student)" as Href,
 
+  // Teacher screens
+  createClass: "/(teacher)/create-class" as Href,
+  classFeed: (id: string) => `/(teacher)/class/${id}` as Href,
+  classQuizzes: (id: string) => `/(teacher)/class/${id}/quizzes` as Href,
+  classGradebook: (id: string) => `/(teacher)/class/${id}/gradebook` as Href,
+
   // Root
   index: "/" as Href,
 } as const;

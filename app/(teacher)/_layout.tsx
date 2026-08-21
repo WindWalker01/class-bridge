@@ -20,6 +20,10 @@ export default function TeacherLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="create-class" />
+      <Stack.Screen name="class/[id]/index" />
+      <Stack.Screen name="class/[id]/quizzes" />
+      <Stack.Screen name="class/[id]/gradebook" />
     </Stack>
   );
 }
