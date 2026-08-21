@@ -28,7 +28,9 @@ export type { Session, User };
 // ---------------------------------------------------------------------------
 
 export type PostType = "announcement" | "material" | "quiz_link";
-export type QuizStatus = "draft" | "published";
+export type QuizStatus = "draft" | "published" | "closed";
+export type QuizMode = "standard" | "timed" | "gamified";
+export type QuestionType = "mcq" | "true_false" | "short_answer";
 
 /** A class (course) created by a teacher. */
 export type Class = {
@@ -84,12 +86,59 @@ export type Quiz = {
   class_id: string;
   title: string;
   description: string | null;
+  mode: QuizMode;
+  time_limit_seconds: number | null;
   status: QuizStatus;
   created_at: string;
   updated_at: string;
 };
 
-/** A grade record for a student on a quiz. */
+/** A question within a quiz. */
+export type Question = {
+  id: string;
+  quiz_id: string;
+  order_index: number;
+  type: QuestionType;
+  prompt: string;
+  options: MCQOption[] | null;
+  correct_answer: string | boolean | { key: string };
+  points: number;
+  time_limit_seconds: number | null;
+};
+
+/** An option for an MCQ question. */
+export type MCQOption = {
+  key: string;
+  text: string;
+};
+
+/** A student's attempt at a quiz. */
+export type QuizAttempt = {
+  id: string;
+  quiz_id: string;
+  student_id: string;
+  started_at: string;
+  submitted_at: string | null;
+  score: number | null;
+  max_score: number | null;
+  status: "in_progress" | "submitted" | "graded";
+  mode: QuizMode;
+};
+
+/** An answer submitted by a student for a question. */
+export type Answer = {
+  id: string;
+  attempt_id: string;
+  question_id: string;
+  response: string | boolean | { selectedKey: string } | null;
+  is_correct: boolean | null;
+  points_awarded: number | null;
+  needs_review: boolean;
+  time_taken_ms: number | null;
+  answered_at: string;
+};
+
+/** A grade record for a student on a quiz (legacy, superseded by QuizAttempt). */
 export type Grade = {
   id: string;
   student_id: string;
@@ -104,6 +153,49 @@ export type Grade = {
 export type GradeWithDetails = Grade & {
   student: Pick<Profile, "full_name"> | null;
   quiz: Pick<Quiz, "title"> | null;
+};
+
+// ---------------------------------------------------------------------------
+// Student-side types
+// ---------------------------------------------------------------------------
+
+/** A class row joined with its teacher's profile. */
+export type ClassWithTeacher = Class & {
+  teacher: Pick<Profile, "full_name"> | null;
+};
+
+/** The status of a quiz from a student's perspective. */
+export type StudentQuizStatus =
+  | "not_started"
+  | "in_progress"
+  | "submitted"
+  | "graded";
+
+/** A quiz with the current student's status and score. */
+export type QuizWithStudentStatus = Quiz & {
+  studentStatus: StudentQuizStatus;
+  score: number | null;
+  maxScore: number | null;
+};
+
+/** A grade item for the student's grades screen. */
+export type StudentGradeItem = {
+  classId: string;
+  className: string;
+  itemId: string;
+  itemName: string;
+  score: number;
+  maxScore: number;
+};
+
+/** A leaderboard entry for a quiz. */
+export type LeaderboardEntry = {
+  student_id: string;
+  student_name: string;
+  score: number;
+  max_score: number;
+  submitted_at: string;
+  rank: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -129,6 +221,19 @@ export type RootStackParamList = {
   "(teacher)/create-class": undefined;
   "(teacher)/class/[id]": { id: string };
   "(teacher)/class/[id]/quizzes": { id: string };
+  "(teacher)/class/[id]/quizzes/create": { id: string };
+  "(teacher)/class/[id]/quizzes/[quizId]/edit": {
+    id: string;
+    quizId: string;
+  };
   "(teacher)/class/[id]/gradebook": { id: string };
   "(student)": undefined;
+  "(student)/class/[id]/quizzes/[quizId]/take": {
+    id: string;
+    quizId: string;
+  };
+  "(student)/class/[id]/quizzes/[quizId]/leaderboard": {
+    id: string;
+    quizId: string;
+  };
 };

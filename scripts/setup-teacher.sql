@@ -165,6 +165,18 @@ create policy "Teachers can remove members from own classes"
     )
   );
 
+-- Students can join a class by inserting their own membership
+create policy "Students can join classes"
+  on public.class_members
+  for insert
+  with check (
+    student_id = auth.uid()
+    and exists (
+      select 1 from public.classes
+      where classes.id = class_members.class_id
+    )
+  );
+
 -- ============================================================================
 -- RLS Policies: posts
 -- ============================================================================

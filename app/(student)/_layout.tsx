@@ -20,6 +20,10 @@ export default function StudentLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="join-class" />
+      <Stack.Screen name="class/[id]/index" />
+      <Stack.Screen name="class/[id]/quizzes" />
+      <Stack.Screen name="grades" />
     </Stack>
   );
 }

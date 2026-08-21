@@ -6,7 +6,7 @@ import { Screen, ThemedText } from "@/components";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
 import { useClass } from "@/hooks/useClasses";
 import { supabase } from "@/lib/supabase";
-import type { Grade, Quiz } from "@/types";
+import type { Quiz, QuizAttempt } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Types for the gradebook matrix
@@ -15,13 +15,6 @@ import type { Grade, Quiz } from "@/types";
 type StudentRow = {
   studentId: string;
   studentName: string;
-};
-
-type GradebookEntry = {
-  studentId: string;
-  quizId: string;
-  score: number;
-  maxScore: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -36,7 +29,7 @@ export default function GradebookScreen() {
 
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [grades, setGrades] = useState<Grade[]>([]);
+  const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -67,32 +60,33 @@ export default function GradebookScreen() {
 
       const quizList: Quiz[] = (quizData ?? []) as Quiz[];
 
-      // Fetch grades for these quizzes
+      // Fetch graded quiz attempts for these quizzes
       const quizIds = quizList.map((q) => q.id);
-      let gradeList: Grade[] = [];
+      let attemptList: QuizAttempt[] = [];
 
       if (quizIds.length > 0) {
-        const { data: gradeData } = await supabase
-          .from("grades")
+        const { data: attemptData } = await supabase
+          .from("quiz_attempts")
           .select("*")
-          .in("quiz_id", quizIds);
+          .in("quiz_id", quizIds)
+          .eq("status", "graded");
 
-        gradeList = (gradeData ?? []) as Grade[];
+        attemptList = (attemptData ?? []) as QuizAttempt[];
       }
 
       setStudents(studentRows);
       setQuizzes(quizList);
-      setGrades(gradeList);
+      setAttempts(attemptList);
       setLoading(false);
     };
 
     void fetchData();
   }, [classId]);
 
-  // Build a lookup: `${studentId}::${quizId}` → Grade
-  const gradeMap = new Map<string, Grade>();
-  for (const g of grades) {
-    gradeMap.set(`${g.student_id}::${g.quiz_id}`, g);
+  // Build a lookup: `${studentId}::${quizId}` → QuizAttempt
+  const attemptMap = new Map<string, QuizAttempt>();
+  for (const a of attempts) {
+    attemptMap.set(`${a.student_id}::${a.quiz_id}`, a);
   }
 
   const COL_WIDTH = 100;
@@ -262,7 +256,7 @@ export default function GradebookScreen() {
                     </View>
                     {quizzes.map((quiz) => {
                       const key = `${student.studentId}::${quiz.id}`;
-                      const grade = gradeMap.get(key);
+                      const attempt = attemptMap.get(key);
 
                       return (
                         <View
@@ -274,26 +268,17 @@ export default function GradebookScreen() {
                             justifyContent: "center",
                           }}
                         >
-                          {grade ? (
+                          {attempt ? (
                             <View style={{ alignItems: "center" }}>
                               <ThemedText
                                 variant="body"
                                 style={{ fontWeight: "600" }}
                               >
-                                {grade.score}/{grade.max_score}
+                                {attempt.score}/{attempt.max_score}
                               </ThemedText>
-                              {grade.graded_at ? (
-                                <ThemedText variant="small" muted>
-                                  Graded
-                                </ThemedText>
-                              ) : (
-                                <ThemedText
-                                  variant="small"
-                                  style={{ color: colors.warning }}
-                                >
-                                  Pending
-                                </ThemedText>
-                              )}
+                              <ThemedText variant="small" muted>
+                                Graded
+                              </ThemedText>
                             </View>
                           ) : (
                             <ThemedText variant="body" muted>
@@ -309,25 +294,6 @@ export default function GradebookScreen() {
             </View>
           </ScrollView>
         )}
-
-        {/* TODO: Part 6 — Grade Engine integration */}
-        <View
-          style={{
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-            paddingVertical: spacing.sm,
-            paddingHorizontal: spacing.md,
-          }}
-        >
-          <ThemedText variant="small" muted style={{ textAlign: "center" }}>
-            {/* TODO: Connect to Grade Engine (Part 6).
-                - Auto-grade quiz submissions
-                - Calculate weighted totals and class averages
-                - Export grades to CSV/PDF
-                - Tap a cell to edit/view detailed grade breakdown */}
-            Grade engine & editing coming in Part 6
-          </ThemedText>
-        </View>
       </View>
     </Screen>
   );

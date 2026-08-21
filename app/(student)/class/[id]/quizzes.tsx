@@ -1,136 +1,59 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
   View,
 } from "react-native";
 
-import { Button, Screen, TextField, ThemedText } from "@/components";
+import { Screen, ThemedText } from "@/components";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
-import { useClass, useClassQuizzes } from "@/hooks/useClasses";
-import { supabase } from "@/lib/supabase";
-import type { Quiz, QuizStatus } from "@/types";
+import { useClass, useStudentQuizStatuses } from "@/hooks/useClasses";
+import type { QuizWithStudentStatus, StudentQuizStatus } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const STATUS_COLORS: Record<QuizStatus, string> = {
-  draft: "#94a3b8",
-  published: "#16a34a",
-  closed: "#dc2626",
+const STATUS_LABELS: Record<StudentQuizStatus, string> = {
+  not_started: "Not Started",
+  in_progress: "In Progress",
+  submitted: "Submitted",
+  graded: "Graded",
+};
+
+const STATUS_COLORS: Record<StudentQuizStatus, string> = {
+  not_started: "#94a3b8",
+  in_progress: "#2563eb",
+  submitted: "#d97706",
+  graded: "#16a34a",
 };
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-const accent = getAccent("teacher");
-
-// ---------------------------------------------------------------------------
-// Create Quiz Modal (inline form)
-// ---------------------------------------------------------------------------
-
-function CreateQuizForm({
-  classId,
-  onCreated,
-  onCancel,
-}: {
-  classId: string;
-  onCreated: () => void;
-  onCancel: () => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleCreate = async () => {
-    if (!title.trim()) {
-      setError("Title is required");
-      return;
-    }
-    setLoading(true);
-    setError("");
-
-    const { error: insertError } = await supabase.from("quizzes").insert({
-      class_id: classId,
-      title: title.trim(),
-      description: description.trim() || null,
-      status: "draft",
-    });
-
-    setLoading(false);
-
-    if (insertError) {
-      Alert.alert("Error", insertError.message);
-      return;
-    }
-
-    onCreated();
-  };
-
-  return (
-    <View
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: radii.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        padding: spacing.lg,
-        gap: spacing.md,
-        marginBottom: spacing.md,
-      }}
-    >
-      <ThemedText variant="heading">New Quiz</ThemedText>
-      <TextField
-        label="Title"
-        placeholder="e.g. Chapter 1 Review"
-        value={title}
-        onChangeText={(text) => {
-          setTitle(text);
-          if (error) setError("");
-        }}
-        error={error}
-      />
-      <TextField
-        label="Description (optional)"
-        placeholder="Brief description of the quiz"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-      />
-      <View style={{ flexDirection: "row", gap: spacing.md }}>
-        <Button
-          label="Create Draft"
-          fullWidth
-          loading={loading}
-          onPress={handleCreate}
-        />
-        <Button label="Cancel" variant="ghost" fullWidth onPress={onCancel} />
-      </View>
-    </View>
-  );
-}
+const accent = getAccent("student");
 
 // ---------------------------------------------------------------------------
 // Quiz Card
 // ---------------------------------------------------------------------------
 
-function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
-  const statusColor = STATUS_COLORS[quiz.status];
+function QuizCard({ quiz }: { quiz: QuizWithStudentStatus }) {
+  const statusColor = STATUS_COLORS[quiz.studentStatus];
+  const isAvailable =
+    quiz.studentStatus === "not_started" ||
+    quiz.studentStatus === "in_progress";
 
   return (
     <Pressable
-      onPress={() =>
+      onPress={() => {
+        if (!isAvailable) return;
         router.push(
-          `/(teacher)/class/${classId}/quizzes/${quiz.id}/edit` as any,
-        )
-      }
+          `/(student)/class/${quiz.class_id}/quizzes/${quiz.id}/take` as any,
+        );
+      }}
       style={{
         backgroundColor: colors.surface,
         borderRadius: radii.lg,
@@ -138,6 +61,7 @@ function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
         borderColor: colors.border,
         padding: spacing.lg,
         gap: spacing.sm,
+        opacity: isAvailable ? 1 : 0.7,
       }}
     >
       <View
@@ -168,38 +92,70 @@ function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
             style={{
               color: statusColor,
               fontWeight: "600",
-              textTransform: "capitalize",
             }}
           >
-            {quiz.status}
+            {STATUS_LABELS[quiz.studentStatus]}
           </ThemedText>
         </View>
       </View>
+
+      {/* Score display for graded/submitted */}
+      {quiz.score !== null && quiz.maxScore !== null && (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.sm,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.surfaceMuted,
+              borderRadius: radii.sm,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: spacing.xs,
+            }}
+          >
+            <ThemedText variant="small" style={{ fontWeight: "600" }}>
+              {quiz.score}/{quiz.maxScore}
+            </ThemedText>
+          </View>
+          {quiz.studentStatus === "graded" && (
+            <ThemedText variant="small" style={{ color: colors.success }}>
+              ✓ Graded
+            </ThemedText>
+          )}
+        </View>
+      )}
+
+      {/* Action hint */}
       <View
         style={{
           flexDirection: "row",
+          justifyContent: "space-between",
           alignItems: "center",
-          gap: spacing.sm,
         }}
       >
         <ThemedText variant="small" muted>
           Created {formatDate(quiz.created_at)}
         </ThemedText>
-        <View
-          style={{
-            backgroundColor: accent.accentSoft,
-            borderRadius: radii.pill,
-            paddingHorizontal: spacing.sm,
-            paddingVertical: 2,
-          }}
-        >
-          <ThemedText
-            variant="small"
-            style={{ color: accent.accentText, fontWeight: "600" }}
+        {isAvailable ? (
+          <View
+            style={{
+              backgroundColor: accent.accentSoft,
+              borderRadius: radii.pill,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: spacing.xs,
+            }}
           >
-            Edit →
-          </ThemedText>
-        </View>
+            <ThemedText
+              variant="small"
+              style={{ color: accent.accentText, fontWeight: "600" }}
+            >
+              {quiz.studentStatus === "in_progress" ? "Continue" : "Start Quiz"}
+            </ThemedText>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -209,20 +165,15 @@ function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
 // Quizzes Screen
 // ---------------------------------------------------------------------------
 
-export default function QuizzesScreen() {
+export default function StudentQuizzesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const classId = id ?? "";
   const { classData } = useClass(classId);
-  const { quizzes, loading, refreshing, refresh } = useClassQuizzes(classId);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const { quizzes, loading, refreshing, refresh } =
+    useStudentQuizStatuses(classId);
 
-  const handleQuizCreated = () => {
-    setShowCreateForm(false);
-    void refresh();
-  };
-
-  const renderQuiz = ({ item }: { item: Quiz }) => (
-    <QuizCard quiz={item} classId={classId} />
+  const renderQuiz = ({ item }: { item: QuizWithStudentStatus }) => (
+    <QuizCard quiz={item} />
   );
 
   const renderEmpty = () => {
@@ -244,7 +195,7 @@ export default function QuizzesScreen() {
           No quizzes yet
         </ThemedText>
         <ThemedText muted style={{ textAlign: "center" }}>
-          Create your first quiz to assess your students.
+          Your teacher hasn't published any quizzes for this class yet.
         </ThemedText>
       </View>
     );
@@ -277,28 +228,6 @@ export default function QuizzesScreen() {
             )}
           </View>
         </View>
-
-        {/* Create Quiz button */}
-        {!showCreateForm && (
-          <View style={{ marginBottom: spacing.md }}>
-            <Button
-              label="Create Quiz"
-              fullWidth
-              onPress={() =>
-                router.push(`/(teacher)/class/${classId}/quizzes/create` as any)
-              }
-            />
-          </View>
-        )}
-
-        {/* Create form */}
-        {showCreateForm && (
-          <CreateQuizForm
-            classId={classId}
-            onCreated={handleQuizCreated}
-            onCancel={() => setShowCreateForm(false)}
-          />
-        )}
 
         {/* Quiz list */}
         {loading && quizzes.length === 0 ? (
