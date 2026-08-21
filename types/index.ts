@@ -156,6 +156,58 @@ export type GradeWithDetails = Grade & {
 };
 
 // ---------------------------------------------------------------------------
+// Grade Engine types (Part 6)
+// ---------------------------------------------------------------------------
+
+/** A weighted grade category for a class (e.g. "Quizzes" 40%, "Participation" 20%). */
+export type GradeCategory = {
+  id: string;
+  class_id: string;
+  name: string;
+  weight: number;
+  created_at: string;
+};
+
+/** A graded item — either a quiz (auto-created) or a manual entry. */
+export type GradedItem = {
+  id: string;
+  class_id: string;
+  category_id: string;
+  source_type: "quiz" | "manual";
+  source_id: string | null;
+  title: string;
+  max_score: number;
+  created_at: string;
+};
+
+/** A single grade entry for a student on a graded item. */
+export type GradeEntry = {
+  id: string;
+  graded_item_id: string;
+  student_id: string;
+  score: number;
+  graded_at: string;
+};
+
+/** Per-category breakdown returned by final_grades(). */
+export type CategoryBreakdown = {
+  categoryName: string;
+  weight: number;
+  percentage: number;
+  score: number;
+  maxScore: number;
+};
+
+/** A student's final grade result from the final_grades() RPC. */
+export type FinalGrade = {
+  studentId: string;
+  studentName: string;
+  categoryBreakdown: CategoryBreakdown[];
+  finalPercentage: number;
+  letterGrade: string;
+};
+
+// ---------------------------------------------------------------------------
 // Student-side types
 // ---------------------------------------------------------------------------
 

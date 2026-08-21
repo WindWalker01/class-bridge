@@ -218,6 +218,9 @@ export function useClassQuizzes(classId: string) {
 
 // ---------------------------------------------------------------------------
 // useClassGrades (updated to use quiz_attempts)
+// @deprecated Use useFinalGrades and useGrades from hooks/useGradeEngine.ts
+//   for the new Grade Engine (Part 6). This hook reads the legacy flat grades
+//   table which is dropped by setup-grades.sql.
 // ---------------------------------------------------------------------------
 
 export function useClassGrades(classId: string) {
@@ -428,6 +431,9 @@ export function useStudentQuizStatuses(classId: string) {
 
 // ---------------------------------------------------------------------------
 // useStudentAllGrades (updated to use quiz_attempts)
+// @deprecated Use useStudentFinalGrades from hooks/useGradeEngine.ts for the
+//   new Grade Engine (Part 6). This hook reads quiz_attempts directly without
+//   weighted category support.
 // ---------------------------------------------------------------------------
 
 export function useStudentAllGrades() {

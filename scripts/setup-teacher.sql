@@ -56,18 +56,6 @@ create table if not exists public.quizzes (
   updated_at  timestamptz not null default now()
 );
 
--- 6. Grades table --------------------------------------------------------------
-create table if not exists public.grades (
-  id         uuid primary key default gen_random_uuid(),
-  student_id uuid not null references public.profiles(id) on delete cascade,
-  quiz_id    uuid not null references public.quizzes(id) on delete cascade,
-  score      numeric not null default 0,
-  max_score  numeric not null default 100,
-  graded_at  timestamptz,
-  created_at timestamptz not null default now(),
-  unique(student_id, quiz_id)
-);
-
 -- ============================================================================
 -- Enable Row Level Security
 -- ============================================================================
@@ -76,37 +64,72 @@ alter table public.class_members enable row level security;
 alter table public.posts enable row level security;
 alter table public.attachments enable row level security;
 alter table public.quizzes enable row level security;
-alter table public.grades enable row level security;
+
+-- ============================================================================
+-- SECURITY DEFINER helper functions
+-- ============================================================================
+-- These run as the definer (bypassing RLS) to break the circular policy
+-- dependency between `classes` and `class_members`. Without this, querying
+-- `classes` (via "Students can view enrolled classes") triggers a SELECT on
+-- `class_members`, whose policy ("Teachers can view members of own classes")
+-- queries `classes` again, causing:
+--   "infinite recursion detected in policy for relation class_members" (42P17)
+
+-- True if the current user is the teacher of the given class.
+create or replace function public.is_teacher_of_class(target_class_id uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.classes
+    where id = target_class_id
+      and teacher_id = auth.uid()
+  );
+$$;
+
+-- True if the current user is a student enrolled in the given class.
+create or replace function public.is_student_enrolled_in(target_class_id uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.class_members
+    where class_id = target_class_id
+      and student_id = auth.uid()
+  );
+$$;
 
 -- ============================================================================
 -- RLS Policies: classes
 -- ============================================================================
 
 -- Teachers can view their own classes
+drop policy if exists "Teachers can view own classes" on public.classes;
 create policy "Teachers can view own classes"
   on public.classes
   for select
   using (auth.uid() = teacher_id);
 
 -- Students can view classes they are members of
+drop policy if exists "Students can view enrolled classes" on public.classes;
 create policy "Students can view enrolled classes"
   on public.classes
   for select
-  using (
-    exists (
-      select 1 from public.class_members
-      where class_members.class_id = classes.id
-        and class_members.student_id = auth.uid()
-    )
-  );
+  using (public.is_student_enrolled_in(classes.id));
 
 -- Teachers can insert their own classes
+drop policy if exists "Teachers can create classes" on public.classes;
 create policy "Teachers can create classes"
   on public.classes
   for insert
   with check (auth.uid() = teacher_id);
 
 -- Teachers can update their own classes
+drop policy if exists "Teachers can update own classes" on public.classes;
 create policy "Teachers can update own classes"
   on public.classes
   for update
@@ -114,6 +137,7 @@ create policy "Teachers can update own classes"
   with check (auth.uid() = teacher_id);
 
 -- Teachers can delete their own classes
+drop policy if exists "Teachers can delete own classes" on public.classes;
 create policy "Teachers can delete own classes"
   on public.classes
   for delete
@@ -124,48 +148,35 @@ create policy "Teachers can delete own classes"
 -- ============================================================================
 
 -- Teachers can view members of their classes
+drop policy if exists "Teachers can view members of own classes" on public.class_members;
 create policy "Teachers can view members of own classes"
   on public.class_members
   for select
-  using (
-    exists (
-      select 1 from public.classes
-      where classes.id = class_members.class_id
-        and classes.teacher_id = auth.uid()
-    )
-  );
+  using (public.is_teacher_of_class(class_members.class_id));
 
 -- Students can view their own memberships
+drop policy if exists "Students can view own memberships" on public.class_members;
 create policy "Students can view own memberships"
   on public.class_members
   for select
   using (student_id = auth.uid());
 
 -- Teachers can insert members into their classes
+drop policy if exists "Teachers can add members to own classes" on public.class_members;
 create policy "Teachers can add members to own classes"
   on public.class_members
   for insert
-  with check (
-    exists (
-      select 1 from public.classes
-      where classes.id = class_members.class_id
-        and classes.teacher_id = auth.uid()
-    )
-  );
+  with check (public.is_teacher_of_class(class_members.class_id));
 
 -- Teachers can remove members from their classes
+drop policy if exists "Teachers can remove members from own classes" on public.class_members;
 create policy "Teachers can remove members from own classes"
   on public.class_members
   for delete
-  using (
-    exists (
-      select 1 from public.classes
-      where classes.id = class_members.class_id
-        and classes.teacher_id = auth.uid()
-    )
-  );
+  using (public.is_teacher_of_class(class_members.class_id));
 
 -- Students can join a class by inserting their own membership
+drop policy if exists "Students can join classes" on public.class_members;
 create policy "Students can join classes"
   on public.class_members
   for insert
@@ -182,6 +193,7 @@ create policy "Students can join classes"
 -- ============================================================================
 
 -- Teachers can view posts in their classes
+drop policy if exists "Teachers can view posts in own classes" on public.posts;
 create policy "Teachers can view posts in own classes"
   on public.posts
   for select
@@ -194,6 +206,7 @@ create policy "Teachers can view posts in own classes"
   );
 
 -- Students can view posts in classes they are members of
+drop policy if exists "Students can view posts in enrolled classes" on public.posts;
 create policy "Students can view posts in enrolled classes"
   on public.posts
   for select
@@ -206,6 +219,7 @@ create policy "Students can view posts in enrolled classes"
   );
 
 -- Teachers can create posts in their classes
+drop policy if exists "Teachers can create posts in own classes" on public.posts;
 create policy "Teachers can create posts in own classes"
   on public.posts
   for insert
@@ -218,6 +232,7 @@ create policy "Teachers can create posts in own classes"
   );
 
 -- Teachers can update posts in their classes
+drop policy if exists "Teachers can update posts in own classes" on public.posts;
 create policy "Teachers can update posts in own classes"
   on public.posts
   for update
@@ -237,6 +252,7 @@ create policy "Teachers can update posts in own classes"
   );
 
 -- Teachers can delete posts in their classes
+drop policy if exists "Teachers can delete posts in own classes" on public.posts;
 create policy "Teachers can delete posts in own classes"
   on public.posts
   for delete
@@ -253,6 +269,7 @@ create policy "Teachers can delete posts in own classes"
 -- ============================================================================
 
 -- Teachers can view attachments of posts in their classes
+drop policy if exists "Teachers can view attachments in own classes" on public.attachments;
 create policy "Teachers can view attachments in own classes"
   on public.attachments
   for select
@@ -266,6 +283,7 @@ create policy "Teachers can view attachments in own classes"
   );
 
 -- Students can view attachments of posts in enrolled classes
+drop policy if exists "Students can view attachments in enrolled classes" on public.attachments;
 create policy "Students can view attachments in enrolled classes"
   on public.attachments
   for select
@@ -279,6 +297,7 @@ create policy "Students can view attachments in enrolled classes"
   );
 
 -- Teachers can create attachments for posts in their classes
+drop policy if exists "Teachers can create attachments in own classes" on public.attachments;
 create policy "Teachers can create attachments in own classes"
   on public.attachments
   for insert
@@ -292,6 +311,7 @@ create policy "Teachers can create attachments in own classes"
   );
 
 -- Teachers can update attachments in their classes
+drop policy if exists "Teachers can update attachments in own classes" on public.attachments;
 create policy "Teachers can update attachments in own classes"
   on public.attachments
   for update
@@ -313,6 +333,7 @@ create policy "Teachers can update attachments in own classes"
   );
 
 -- Teachers can delete attachments in their classes
+drop policy if exists "Teachers can delete attachments in own classes" on public.attachments;
 create policy "Teachers can delete attachments in own classes"
   on public.attachments
   for delete
@@ -330,6 +351,7 @@ create policy "Teachers can delete attachments in own classes"
 -- ============================================================================
 
 -- Teachers can view quizzes in their classes
+drop policy if exists "Teachers can view quizzes in own classes" on public.quizzes;
 create policy "Teachers can view quizzes in own classes"
   on public.quizzes
   for select
@@ -342,6 +364,7 @@ create policy "Teachers can view quizzes in own classes"
   );
 
 -- Students can view published quizzes in enrolled classes
+drop policy if exists "Students can view published quizzes in enrolled classes" on public.quizzes;
 create policy "Students can view published quizzes in enrolled classes"
   on public.quizzes
   for select
@@ -355,6 +378,7 @@ create policy "Students can view published quizzes in enrolled classes"
   );
 
 -- Teachers can create quizzes in their classes
+drop policy if exists "Teachers can create quizzes in own classes" on public.quizzes;
 create policy "Teachers can create quizzes in own classes"
   on public.quizzes
   for insert
@@ -367,6 +391,7 @@ create policy "Teachers can create quizzes in own classes"
   );
 
 -- Teachers can update quizzes in their classes
+drop policy if exists "Teachers can update quizzes in own classes" on public.quizzes;
 create policy "Teachers can update quizzes in own classes"
   on public.quizzes
   for update
@@ -386,6 +411,7 @@ create policy "Teachers can update quizzes in own classes"
   );
 
 -- Teachers can delete quizzes in their classes
+drop policy if exists "Teachers can delete quizzes in own classes" on public.quizzes;
 create policy "Teachers can delete quizzes in own classes"
   on public.quizzes
   for delete
@@ -393,63 +419,6 @@ create policy "Teachers can delete quizzes in own classes"
     exists (
       select 1 from public.classes
       where classes.id = quizzes.class_id
-        and classes.teacher_id = auth.uid()
-    )
-  );
-
--- ============================================================================
--- RLS Policies: grades
--- ============================================================================
-
--- Teachers can view grades for quizzes in their classes
-create policy "Teachers can view grades in own classes"
-  on public.grades
-  for select
-  using (
-    exists (
-      select 1 from public.quizzes
-      join public.classes on classes.id = quizzes.class_id
-      where quizzes.id = grades.quiz_id
-        and classes.teacher_id = auth.uid()
-    )
-  );
-
--- Students can view their own grades
-create policy "Students can view own grades"
-  on public.grades
-  for select
-  using (student_id = auth.uid());
-
--- Teachers can insert grades for quizzes in their classes
-create policy "Teachers can insert grades in own classes"
-  on public.grades
-  for insert
-  with check (
-    exists (
-      select 1 from public.quizzes
-      join public.classes on classes.id = quizzes.class_id
-      where quizzes.id = grades.quiz_id
-        and classes.teacher_id = auth.uid()
-    )
-  );
-
--- Teachers can update grades for quizzes in their classes
-create policy "Teachers can update grades in own classes"
-  on public.grades
-  for update
-  using (
-    exists (
-      select 1 from public.quizzes
-      join public.classes on classes.id = quizzes.class_id
-      where quizzes.id = grades.quiz_id
-        and classes.teacher_id = auth.uid()
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.quizzes
-      join public.classes on classes.id = quizzes.class_id
-      where quizzes.id = grades.quiz_id
         and classes.teacher_id = auth.uid()
     )
   );
@@ -500,5 +469,3 @@ create index if not exists idx_posts_class_id on public.posts(class_id);
 create index if not exists idx_posts_created_at on public.posts(created_at desc);
 create index if not exists idx_attachments_post_id on public.attachments(post_id);
 create index if not exists idx_quizzes_class_id on public.quizzes(class_id);
-create index if not exists idx_grades_quiz_id on public.grades(quiz_id);
-create index if not exists idx_grades_student_id on public.grades(student_id);

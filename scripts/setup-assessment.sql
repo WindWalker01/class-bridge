@@ -387,6 +387,15 @@ begin
       max_score = v_total_max
   where id = p_attempt_id;
 
+  -- Upsert into the new grades table (Grade Engine)
+  insert into public.grades (graded_item_id, student_id, score)
+  select gi.id, v_attempt.student_id, v_total_score
+  from public.graded_items gi
+  where gi.source_type = 'quiz'
+    and gi.source_id = v_attempt.quiz_id
+  on conflict (graded_item_id, student_id)
+  do update set score = excluded.score, graded_at = now();
+
   -- Return the updated attempt
   select * into v_attempt
   from public.quiz_attempts

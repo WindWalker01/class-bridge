@@ -606,6 +606,24 @@ export default function ClassFeedScreen() {
               Grades
             </ThemedText>
           </Pressable>
+          <Pressable
+            onPress={() =>
+              router.push(`/(teacher)/class/${classId}/grade-settings` as any)
+            }
+            style={{
+              paddingHorizontal: spacing.sm,
+              paddingVertical: spacing.xs,
+              borderRadius: radii.pill,
+              backgroundColor: accent.accentSoft,
+            }}
+          >
+            <ThemedText
+              variant="small"
+              style={{ color: accent.accentText, fontWeight: "600" }}
+            >
+              Weights
+            </ThemedText>
+          </Pressable>
         </View>
 
         {/* Feed */}

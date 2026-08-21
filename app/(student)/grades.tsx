@@ -1,5 +1,4 @@
 import { useRouter } from "expo-router";
-import { useMemo } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,55 +9,37 @@ import {
 
 import { Screen, ThemedText } from "@/components";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
-import { useStudentAllGrades } from "@/hooks/useClasses";
-import type { StudentGradeItem } from "@/types";
+import { useStudentFinalGrades } from "@/hooks/useGradeEngine";
+import type { CategoryBreakdown, FinalGrade } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Group grade items by classId, preserving insertion order. */
-function groupByClass(
-  items: StudentGradeItem[],
-): { classId: string; className: string; items: StudentGradeItem[] }[] {
-  const map = new Map<
-    string,
-    { classId: string; className: string; items: StudentGradeItem[] }
-  >();
-  for (const item of items) {
-    const existing = map.get(item.classId);
-    if (existing) {
-      existing.items.push(item);
-    } else {
-      map.set(item.classId, {
-        classId: item.classId,
-        className: item.className,
-        items: [item],
-      });
-    }
+function letterColor(letter: string): string {
+  switch (letter) {
+    case "A":
+      return colors.success;
+    case "B":
+      return "#2563eb";
+    case "C":
+      return colors.warning;
+    case "D":
+      return "#f97316";
+    default:
+      return colors.danger;
   }
-  return Array.from(map.values());
-}
-
-/** Calculate overall percentage for a list of grade items. */
-function overallPercent(items: StudentGradeItem[]): number {
-  const totalScore = items.reduce((sum, i) => sum + i.score, 0);
-  const totalMax = items.reduce((sum, i) => sum + i.maxScore, 0);
-  if (totalMax === 0) return 0;
-  return Math.round((totalScore / totalMax) * 100);
 }
 
 // ---------------------------------------------------------------------------
-// Grade Item Row
+// Category Breakdown Row
 // ---------------------------------------------------------------------------
 
-function GradeItemRow({ item }: { item: StudentGradeItem }) {
-  const percent =
-    item.maxScore > 0 ? Math.round((item.score / item.maxScore) * 100) : 0;
-  const percentColor =
-    percent >= 80
+function CategoryRow({ breakdown }: { breakdown: CategoryBreakdown }) {
+  const pctColor =
+    breakdown.percentage >= 80
       ? colors.success
-      : percent >= 60
+      : breakdown.percentage >= 60
         ? colors.warning
         : colors.danger;
 
@@ -75,18 +56,21 @@ function GradeItemRow({ item }: { item: StudentGradeItem }) {
     >
       <View style={{ flex: 1, gap: spacing.xs }}>
         <ThemedText variant="caption" numberOfLines={1}>
-          {item.itemName}
+          {breakdown.categoryName}
+        </ThemedText>
+        <ThemedText variant="small" muted>
+          Weight: {breakdown.weight}%
         </ThemedText>
       </View>
       <View style={{ alignItems: "flex-end", gap: spacing.xs }}>
         <ThemedText variant="caption" style={{ fontWeight: "600" }}>
-          {item.score}/{item.maxScore}
+          {breakdown.score}/{breakdown.maxScore}
         </ThemedText>
         <ThemedText
           variant="small"
-          style={{ color: percentColor, fontWeight: "600" }}
+          style={{ color: pctColor, fontWeight: "600" }}
         >
-          {percent}%
+          {breakdown.percentage}%
         </ThemedText>
       </View>
     </View>
@@ -98,15 +82,12 @@ function GradeItemRow({ item }: { item: StudentGradeItem }) {
 // ---------------------------------------------------------------------------
 
 function ClassGradeSection({
-  section,
+  grade,
 }: {
-  section: {
-    classId: string;
-    className: string;
-    items: StudentGradeItem[];
-  };
+  grade: FinalGrade & { classId: string; className: string };
 }) {
-  const percent = overallPercent(section.items);
+  const accent = getAccent("student");
+  const gradeColor = letterColor(grade.letterGrade);
 
   return (
     <View
@@ -129,16 +110,16 @@ function ClassGradeSection({
       >
         <View style={{ flex: 1, gap: spacing.xs }}>
           <ThemedText variant="heading" numberOfLines={1}>
-            {section.className}
+            {grade.className}
           </ThemedText>
           <ThemedText variant="small" muted>
-            {section.items.length}{" "}
-            {section.items.length === 1 ? "item" : "items"}
+            {grade.categoryBreakdown.length}{" "}
+            {grade.categoryBreakdown.length === 1 ? "category" : "categories"}
           </ThemedText>
         </View>
         <View
           style={{
-            backgroundColor: accent.accentSoft,
+            backgroundColor: gradeColor + "18",
             borderRadius: radii.md,
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm,
@@ -147,20 +128,23 @@ function ClassGradeSection({
         >
           <ThemedText
             variant="title"
-            style={{ color: accent.accentText, fontWeight: "700" }}
+            style={{ color: gradeColor, fontWeight: "700" }}
           >
-            {percent}%
+            {grade.finalPercentage}%
           </ThemedText>
-          <ThemedText variant="small" style={{ color: accent.accentText }}>
-            Overall
+          <ThemedText
+            variant="display"
+            style={{ color: gradeColor, fontWeight: "800" }}
+          >
+            {grade.letterGrade}
           </ThemedText>
         </View>
       </View>
 
-      {/* Items */}
+      {/* Category breakdowns */}
       <View>
-        {section.items.map((item) => (
-          <GradeItemRow key={item.itemId} item={item} />
+        {grade.categoryBreakdown.map((cat) => (
+          <CategoryRow key={cat.categoryName} breakdown={cat} />
         ))}
       </View>
     </View>
@@ -175,19 +159,13 @@ const accent = getAccent("student");
 
 export default function GradesScreen() {
   const router = useRouter();
-  const { gradeItems, loading, refreshing, refresh } = useStudentAllGrades();
-
-  const sections = useMemo(() => groupByClass(gradeItems), [gradeItems]);
+  const { finalGrades, loading, refreshing, refresh } = useStudentFinalGrades();
 
   const renderSection = ({
     item,
   }: {
-    item: {
-      classId: string;
-      className: string;
-      items: StudentGradeItem[];
-    };
-  }) => <ClassGradeSection section={item} />;
+    item: FinalGrade & { classId: string; className: string };
+  }) => <ClassGradeSection grade={item} />;
 
   const renderEmpty = () => {
     if (loading) return null;
@@ -208,8 +186,8 @@ export default function GradesScreen() {
           No grades yet
         </ThemedText>
         <ThemedText muted style={{ textAlign: "center" }}>
-          Your grades will appear here once your teacher grades your submitted
-          work.
+          Your weighted grades will appear here once your teacher sets up grade
+          categories and grades your work.
         </ThemedText>
       </View>
     );
@@ -234,15 +212,14 @@ export default function GradesScreen() {
           <View style={{ flex: 1 }}>
             <ThemedText variant="display">Grades</ThemedText>
             <ThemedText muted>
-              {gradeItems.length} {gradeItems.length === 1 ? "grade" : "grades"}{" "}
-              across {sections.length}{" "}
-              {sections.length === 1 ? "class" : "classes"}
+              {finalGrades.length}{" "}
+              {finalGrades.length === 1 ? "class" : "classes"}
             </ThemedText>
           </View>
         </View>
 
         {/* Grade sections */}
-        {loading && gradeItems.length === 0 ? (
+        {loading && finalGrades.length === 0 ? (
           <View
             style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
           >
@@ -250,7 +227,7 @@ export default function GradesScreen() {
           </View>
         ) : (
           <FlatList
-            data={sections}
+            data={finalGrades}
             keyExtractor={(item) => item.classId}
             renderItem={renderSection}
             ListEmptyComponent={renderEmpty}
@@ -270,24 +247,6 @@ export default function GradesScreen() {
             showsVerticalScrollIndicator={false}
           />
         )}
-
-        {/* TODO: Part 6 — Grade Engine integration */}
-        <View
-          style={{
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-            paddingVertical: spacing.sm,
-            paddingHorizontal: spacing.md,
-          }}
-        >
-          <ThemedText variant="small" muted style={{ textAlign: "center" }}>
-            {/* TODO: Connect to Grade Engine (Part 6).
-                - Weighted grade calculations
-                - Category breakdowns (homework, quizzes, exams)
-                - Detailed grade history and trends */}
-            Advanced grade features coming in Part 6 — Grade Engine
-          </ThemedText>
-        </View>
       </View>
     </Screen>
   );
