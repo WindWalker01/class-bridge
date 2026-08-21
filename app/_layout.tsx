@@ -25,7 +25,9 @@ export default function RootLayout() {
   // Subscribe to auth state changes
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        // Skip the initial session event — initialize() already handles it
+        if (event === "INITIAL_SESSION") return;
         setSession(session);
       },
     );

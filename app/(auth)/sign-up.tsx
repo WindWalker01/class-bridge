@@ -60,7 +60,7 @@ export default function SignUpScreen() {
       return;
     }
 
-    router.replace(Routes.emailConfirmation);
+    router.replace(Routes.roleSelection);
   };
 
   return (

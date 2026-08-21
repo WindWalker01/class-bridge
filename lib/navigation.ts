@@ -14,7 +14,6 @@ export const Routes = {
   signUp: "/(auth)/sign-up" as Href,
   forgotPassword: "/(auth)/forgot-password" as Href,
   resetPassword: "/(auth)/reset-password" as Href,
-  emailConfirmation: "/(auth)/email-confirmation" as Href,
   roleSelection: "/(auth)/role-selection" as Href,
   profileSetup: "/(auth)/profile-setup" as Href,
 

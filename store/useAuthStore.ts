@@ -48,8 +48,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         session,
         user: session?.user ?? null,
-        loading: false,
-        hasInitialized: true,
       });
 
       if (session?.user) {
@@ -57,6 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (error) {
       console.error("[class-bridge] Failed to initialize auth state", error);
+    } finally {
       set({ loading: false, hasInitialized: true });
     }
   },
