@@ -31,16 +31,15 @@ export default function JoinClassScreen() {
   const [joining, setJoining] = useState(false);
 
   const handleLookup = async () => {
-    const trimmed = code.trim();
+    const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
 
     setLookup({ stage: "loading" });
 
-    // Look up the class by code, joining the teacher's profile
+    // Look up the class by code using a security-definer RPC that bypasses
+    // RLS so unenrolled students can find the class before joining.
     const { data, error } = await supabase
-      .from("classes")
-      .select("*, teacher:profiles!classes_teacher_id_fkey(full_name)")
-      .eq("class_code", trimmed)
+      .rpc("get_class_by_code", { p_class_code: trimmed })
       .single();
 
     if (error || !data) {
@@ -52,15 +51,12 @@ export default function JoinClassScreen() {
     }
 
     const classData = data as unknown as Class & {
-      teacher: { full_name: string | null } | null;
+      teacher_name: string | null;
     };
 
     setLookup({
       stage: "found",
-      classData: {
-        ...classData,
-        teacher_name: classData.teacher?.full_name ?? null,
-      },
+      classData,
     });
   };
 

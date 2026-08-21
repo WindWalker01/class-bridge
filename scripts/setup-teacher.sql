@@ -103,6 +103,49 @@ as $$
   );
 $$;
 
+-- Look up a class by its code, including the teacher's name.
+-- Uses security definer so unenrolled students can find the class before joining.
+create or replace function public.get_class_by_code(p_class_code text)
+returns table(
+  id            uuid,
+  name          text,
+  subject       text,
+  section       text,
+  class_code    text,
+  teacher_id    uuid,
+  created_at    timestamptz,
+  teacher_name  text
+)
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select
+    c.id,
+    c.name,
+    c.subject,
+    c.section,
+    c.class_code,
+    c.teacher_id,
+    c.created_at,
+    p.full_name as teacher_name
+  from public.classes c
+  left join public.profiles p on p.id = c.teacher_id
+  where c.class_code = p_class_code
+  limit 1;
+$$;
+
+-- Check if a class exists by ID (bypasses RLS so the join-flow policy can
+-- verify the class exists before the student is enrolled).
+create or replace function public.class_exists_by_id(p_class_id uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select exists (select 1 from public.classes where id = p_class_id);
+$$;
+
 -- ============================================================================
 -- RLS Policies: classes
 -- ============================================================================
@@ -176,16 +219,16 @@ create policy "Teachers can remove members from own classes"
   using (public.is_teacher_of_class(class_members.class_id));
 
 -- Students can join a class by inserting their own membership
+-- Uses class_exists_by_id (security definer) so the existence check bypasses
+-- RLS — the student is not yet enrolled, so the normal "Students can view
+-- enrolled classes" policy would otherwise block the check.
 drop policy if exists "Students can join classes" on public.class_members;
 create policy "Students can join classes"
   on public.class_members
   for insert
   with check (
     student_id = auth.uid()
-    and exists (
-      select 1 from public.classes
-      where classes.id = class_members.class_id
-    )
+    and public.class_exists_by_id(class_members.class_id)
   );
 
 -- ============================================================================
