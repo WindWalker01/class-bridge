@@ -337,6 +337,79 @@ create trigger quizzes_after_insert
   for each row execute function public.trg_quiz_inserted();
 
 -- ============================================================================
+-- Quiz Feed Post: auto create/delete a quiz_link post on publish/unpublish
+-- ============================================================================
+
+-- Add quiz_id column to posts (safe for existing installs)
+alter table public.posts
+  add column if not exists quiz_id uuid references public.quizzes(id) on delete cascade;
+
+create or replace function public.trg_quiz_feed_post()
+returns trigger as $$
+declare
+  v_teacher_id uuid;
+  v_post_id    uuid;
+begin
+  -- Published → create a quiz_link post in the class feed
+  if new.status = 'published' and (old.status is distinct from 'published') then
+    -- Get the teacher who owns this class
+    select teacher_id into v_teacher_id
+    from public.classes
+    where id = new.class_id;
+
+    -- Insert a quiz_link post (skip if one already exists for this quiz)
+    if not exists (
+      select 1 from public.posts
+      where quiz_id = new.id
+    ) then
+      insert into public.posts (class_id, author_id, type, content, quiz_id)
+      values (
+        new.class_id,
+        v_teacher_id,
+        'quiz_link',
+        case
+          when new.description is not null and new.description != ''
+            then '📝 A new quiz "' || new.title || '" is now available: ' || new.description
+          else '📝 A new quiz "' || new.title || '" is now available!'
+        end,
+        new.id
+      )
+      returning id into v_post_id;
+    end if;
+
+  -- Unpublished → remove the quiz_link post from the feed
+  elsif old.status = 'published' and new.status is distinct from 'published' then
+    delete from public.posts
+    where quiz_id = new.id;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Fire on update (publish/unpublish toggle)
+drop trigger if exists quizzes_after_publish_feed on public.quizzes;
+create trigger quizzes_after_publish_feed
+  after update on public.quizzes
+  for each row execute function public.trg_quiz_feed_post();
+
+-- Also fire on insert (quiz created as published)
+create or replace function public.trg_quiz_inserted_feed()
+returns trigger as $$
+begin
+  if new.status = 'published' then
+    perform public.trg_quiz_feed_post() from (select new, new as old) as t;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists quizzes_after_insert_feed on public.quizzes;
+create trigger quizzes_after_insert_feed
+  after insert on public.quizzes
+  for each row execute function public.trg_quiz_inserted_feed();
+
+-- ============================================================================
 -- RPC: final_grades(class_id) — weighted final grade calculation
 -- ============================================================================
 

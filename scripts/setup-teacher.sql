@@ -32,6 +32,7 @@ create table if not exists public.posts (
   author_id  uuid not null references public.profiles(id) on delete cascade,
   type       text not null check (type in ('announcement', 'material', 'quiz_link')),
   content    text not null default '',
+  quiz_id    uuid references public.quizzes(id) on delete cascade,
   created_at timestamptz not null default now()
 );
 
@@ -510,5 +511,6 @@ create index if not exists idx_class_members_class_id on public.class_members(cl
 create index if not exists idx_class_members_student_id on public.class_members(student_id);
 create index if not exists idx_posts_class_id on public.posts(class_id);
 create index if not exists idx_posts_created_at on public.posts(created_at desc);
+create index if not exists idx_posts_quiz_id on public.posts(quiz_id);
 create index if not exists idx_attachments_post_id on public.attachments(post_id);
 create index if not exists idx_quizzes_class_id on public.quizzes(class_id);
