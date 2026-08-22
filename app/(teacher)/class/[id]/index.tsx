@@ -292,6 +292,14 @@ function Composer({
 
       for (const att of attachments) {
         const path = `${classId}/${postId}/${att.name}`;
+        console.log(
+          "[composer] uploading:",
+          path,
+          "| user.id:",
+          user.id,
+          "| type:",
+          att.type,
+        );
 
         // Fetch the file as a blob
         const response = await fetch(att.uri);

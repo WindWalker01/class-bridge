@@ -25,7 +25,7 @@ create policy "Teachers can manage class attachment files"
     bucket_id = 'class-attachments'
     and exists (
       select 1 from public.classes
-      where classes.id::text = (storage.foldername(name))[1]
+      where classes.id::text = (storage.foldername(storage.objects.name))[1]
         and classes.teacher_id = auth.uid()
     )
   )
@@ -33,7 +33,7 @@ create policy "Teachers can manage class attachment files"
     bucket_id = 'class-attachments'
     and exists (
       select 1 from public.classes
-      where classes.id::text = (storage.foldername(name))[1]
+      where classes.id::text = (storage.foldername(storage.objects.name))[1]
         and classes.teacher_id = auth.uid()
     )
   );
@@ -48,7 +48,7 @@ create policy "Students can read class attachment files"
     and exists (
       select 1 from public.class_members
       join public.classes on classes.id = class_members.class_id
-      where classes.id::text = (storage.foldername(name))[1]
+      where classes.id::text = (storage.foldername(storage.objects.name))[1]
         and class_members.student_id = auth.uid()
     )
   );
