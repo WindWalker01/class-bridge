@@ -1,9 +1,11 @@
 import { useRouter } from "expo-router";
-import { FileText, GraduationCap, Presentation } from "lucide-react-native";
+import { GraduationCap, Presentation } from "lucide-react-native";
+
 import { View } from "react-native";
 
 import { Card, FadeInUp, Screen, ThemedText } from "@/components";
-import { colors, radii, roleAccents, spacing } from "@/constants/theme";
+import { getRoleAccents, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { Routes } from "@/lib/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { Role } from "@/types";
@@ -16,6 +18,8 @@ const ROLE_ICONS: Record<Role, typeof GraduationCap> = {
 export default function RoleSelectionScreen() {
   const router = useRouter();
   const updateProfile = useAuthStore((state) => state.updateProfile);
+  const { resolvedMode } = useTheme();
+  const roleAccents = getRoleAccents(resolvedMode);
 
   const handleSelect = async (role: Role) => {
     await updateProfile({ role, onboarded: false });
@@ -41,7 +45,6 @@ export default function RoleSelectionScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: spacing.lg,
-                  backgroundColor: colors.white,
                 }}
               >
                 <View

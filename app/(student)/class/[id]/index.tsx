@@ -108,9 +108,7 @@ function AttachmentThumbnail({ attachment }: { attachment: Attachment }) {
         borderColor: colors.border,
       }}
     >
-      <ThemedText variant="small" style={{ fontSize: 20 }}>
-        📎
-      </ThemedText>
+      <FileText size={20} color={colors.textMuted} strokeWidth={1.8} />
       <ThemedText variant="small" numberOfLines={1} style={{ flex: 1 }}>
         {attachment.file_name}
       </ThemedText>

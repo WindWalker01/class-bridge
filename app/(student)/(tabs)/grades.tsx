@@ -16,11 +16,17 @@ import {
   SkeletonCard,
   ThemedText,
 } from "@/components";
+import { modeColor, radii, spacing, type ColorTokens } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { useStudentFinalGrades } from "@/hooks/useGradeEngine";
+import type { CategoryBreakdown, FinalGrade } from "@/types";
+
 // ---------------------------------------------------------------------------
 // Category Breakdown Row
 // ---------------------------------------------------------------------------
 
 function CategoryRow({ breakdown }: { breakdown: CategoryBreakdown }) {
+  const { colors } = useTheme();
   const pctColor =
     breakdown.percentage >= 80
       ? colors.success
@@ -71,8 +77,8 @@ function ClassGradeSection({
 }: {
   grade: FinalGrade & { classId: string; className: string };
 }) {
-  const accent = getAccent("student");
-  const gradeColor = letterColor(grade.letterGrade);
+  const { colors, resolvedMode } = useTheme();
+  const gradeColor = letterColor(grade.letterGrade, colors, resolvedMode);
 
   return (
     <Card variant="flat">
@@ -133,9 +139,8 @@ function ClassGradeSection({
 // Grades Screen
 // ---------------------------------------------------------------------------
 
-const accent = getAccent("student");
-
 export default function GradesScreen() {
+  const { accent } = useTheme();
   const { finalGrades, loading, refreshing, refresh } = useStudentFinalGrades();
 
   const renderSection = ({
@@ -205,24 +210,25 @@ export default function GradesScreen() {
     </Screen>
   );
 }
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
-import { useStudentFinalGrades } from "@/hooks/useGradeEngine";
-import type { CategoryBreakdown, FinalGrade } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function letterColor(letter: string): string {
+function letterColor(
+  letter: string,
+  colors: ColorTokens,
+  mode: "light" | "dark",
+): string {
   switch (letter) {
     case "A":
       return colors.success;
     case "B":
-      return "#2563eb";
+      return colors.primary;
     case "C":
       return colors.warning;
     case "D":
-      return "#f97316";
+      return modeColor(mode, "#f97316", "#fb923c");
     default:
       return colors.danger;
   }

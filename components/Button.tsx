@@ -1,4 +1,11 @@
-import { ActivityIndicator, Text, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import {
+  ActivityIndicator,
+  Text,
+  type GestureResponderEvent,
+  type PressableProps,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import Animated from "react-native-reanimated";
 
 import { radii, spacing, typography } from "@/constants/theme";
@@ -15,6 +22,8 @@ type ButtonProps = Omit<PressableProps, "style"> & {
   /** Shows a spinner and disables interaction. */
   loading?: boolean;
   label: string;
+  /** Optional icon rendered before the label. */
+  leftIcon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -50,6 +59,7 @@ export function Button({
   fullWidth = false,
   loading = false,
   label,
+  leftIcon,
   disabled,
   style,
   ...rest
@@ -61,6 +71,11 @@ export function Button({
   });
   const { onPress, ...otherRest } = rest;
 
+  const handleTouchEnd = (e: GestureResponderEvent) => {
+    pressOut();
+    onPress?.(e);
+  };
+
   const baseStyle: ViewStyle = {
     backgroundColor: backgroundFor(variant, colors),
     borderRadius: radii.md,
@@ -70,6 +85,8 @@ export function Button({
     justifyContent: "center",
     opacity: isDisabled ? 0.5 : 1,
     alignSelf: fullWidth ? "stretch" : "flex-start",
+    flexDirection: "row",
+    gap: spacing.sm,
   };
 
   if (variant === "secondary") {
@@ -81,21 +98,24 @@ export function Button({
     <Animated.View
       style={[baseStyle, !isDisabled ? (animatedStyle as any) : {}, style as any]}
       onTouchStart={!isDisabled ? pressIn : undefined}
-      onTouchEnd={!isDisabled ? () => { pressOut(); onPress?.(); } : undefined}
+      onTouchEnd={!isDisabled ? handleTouchEnd : undefined}
       onTouchCancel={!isDisabled ? pressOut : undefined}
       {...otherRest}
     >
       {loading ? (
         <ActivityIndicator color={textColorFor(variant, colors)} size="small" />
       ) : (
-        <Text
-          style={[
-            typography.body,
-            { color: textColorFor(variant, colors), fontWeight: "600" },
-          ]}
-        >
-          {label}
-        </Text>
+        <>
+          {leftIcon}
+          <Text
+            style={[
+              typography.body,
+              { color: textColorFor(variant, colors), fontWeight: "600" },
+            ]}
+          >
+            {label}
+          </Text>
+        </>
       )}
     </Animated.View>
   );

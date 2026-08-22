@@ -4,7 +4,14 @@ import { useForm } from "react-hook-form";
 import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { z } from "zod";
 
-import { Button, FadeInUp, Screen, TextField, ThemedText, useToast } from "@/components";
+import {
+  AuthHeader,
+  Button,
+  FadeInUp,
+  Screen,
+  TextField,
+  useToast,
+} from "@/components";
 import { spacing } from "@/constants/theme";
 import { Routes } from "@/lib/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -53,10 +60,10 @@ export default function ProfileSetupScreen() {
         <View style={{ flex: 1, justifyContent: "center" }}>
           <FadeInUp>
             <View style={{ gap: spacing.md }}>
-              <ThemedText variant="title">Set up your profile</ThemedText>
-              <ThemedText muted>
-                Tell us a bit about yourself so your dashboard feels like home.
-              </ThemedText>
+              <AuthHeader
+                title="Set up your profile"
+                subtitle="Tell us a bit about yourself so your dashboard feels like home."
+              />
 
               <TextField
                 label="Full name"

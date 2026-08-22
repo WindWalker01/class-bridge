@@ -1,16 +1,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
 
 import {
+  AuthHeader,
   Button,
   FadeInUp,
+  PasswordField,
   Screen,
   TextField,
-  ThemedText,
   useToast,
 } from "@/components";
 import { appConfig } from "@/constants/config";
@@ -28,7 +28,6 @@ type SignInForm = z.infer<typeof signInSchema>;
 export default function SignInScreen() {
   const router = useRouter();
   const { show } = useToast();
-  const [showPassword, setShowPassword] = useState(false);
 
   const {
     handleSubmit,
@@ -71,8 +70,10 @@ export default function SignInScreen() {
       <View style={{ flex: 1, justifyContent: "center" }}>
         <FadeInUp>
           <View style={{ gap: spacing.md }}>
-            <ThemedText variant="display">{appConfig.name}</ThemedText>
-            <ThemedText muted>Sign in to continue.</ThemedText>
+            <AuthHeader
+              title={appConfig.name}
+              subtitle="Sign in to continue."
+            />
 
             <TextField
               label="Email"
@@ -86,20 +87,13 @@ export default function SignInScreen() {
               }
             />
 
-            <TextField
+            <PasswordField
               label="Password"
               placeholder="••••••••"
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
               error={errors.password?.message}
               onChangeText={(text) =>
                 setValue("password", text, { shouldValidate: true })
               }
-            />
-            <Button
-              variant="ghost"
-              label={showPassword ? "Hide password" : "Show password"}
-              onPress={() => setShowPassword((prev) => !prev)}
             />
 
             <Button

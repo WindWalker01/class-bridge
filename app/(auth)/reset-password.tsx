@@ -8,8 +8,8 @@ import { z } from "zod";
 import {
   Button,
   FadeInUp,
+  PasswordField,
   Screen,
-  TextField,
   ThemedText,
   useToast,
 } from "@/components";
@@ -38,8 +38,6 @@ export default function ResetPasswordScreen() {
   const { show } = useToast();
   const [checkingSession, setCheckingSession] = useState(true);
   const [sessionError, setSessionError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   // Verify that we have a valid session (set by OTP verification)
   useEffect(() => {
@@ -122,36 +120,22 @@ export default function ResetPasswordScreen() {
               <ThemedText variant="title">Set new password</ThemedText>
               <ThemedText muted>Enter your new password below.</ThemedText>
 
-              <TextField
+              <PasswordField
                 label="New password"
                 placeholder="••••••••"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
                 error={errors.password?.message}
                 onChangeText={(text) =>
                   setValue("password", text, { shouldValidate: true })
                 }
               />
-              <Button
-                variant="ghost"
-                label={showPassword ? "Hide password" : "Show password"}
-                onPress={() => setShowPassword((prev) => !prev)}
-              />
 
-              <TextField
+              <PasswordField
                 label="Confirm new password"
                 placeholder="••••••••"
-                secureTextEntry={!showConfirm}
-                autoCapitalize="none"
                 error={errors.confirmPassword?.message}
                 onChangeText={(text) =>
                   setValue("confirmPassword", text, { shouldValidate: true })
                 }
-              />
-              <Button
-                variant="ghost"
-                label={showConfirm ? "Hide password" : "Show password"}
-                onPress={() => setShowConfirm((prev) => !prev)}
               />
 
               <Button

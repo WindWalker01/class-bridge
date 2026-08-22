@@ -21,12 +21,13 @@ import {
   useToast,
 } from "@/components";
 import {
-  colors,
-  getAccent,
+  modeColor,
   radii,
   spacing,
   typography,
+  type ColorTokens,
 } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { useClass } from "@/hooks/useClasses";
 import {
   useCreateManualGradedItem,
@@ -59,16 +60,20 @@ type StudentRow = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function letterColor(letter: string): string {
+function letterColor(
+  letter: string,
+  colors: ColorTokens,
+  mode: "light" | "dark",
+): string {
   switch (letter) {
     case "A":
       return colors.success;
     case "B":
-      return "#2563eb";
+      return colors.primary;
     case "C":
       return colors.warning;
     case "D":
-      return "#f97316";
+      return modeColor(mode, "#f97316", "#fb923c");
     default:
       return colors.danger;
   }
@@ -81,7 +86,7 @@ function letterColor(letter: string): string {
 export default function GradebookScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const classId = id ?? "";
-  const accent = getAccent("teacher");
+  const { colors, accent, resolvedMode } = useTheme();
   const { classData } = useClass(classId);
   const insets = useSafeAreaInsets();
 
@@ -832,7 +837,7 @@ export default function GradebookScreen() {
                                 variant="body"
                                 style={{
                                   fontWeight: "700",
-                                  color: letterColor(final.letterGrade),
+                                  color: letterColor(final.letterGrade, colors, resolvedMode),
                                 }}
                               >
                                 {final.finalPercentage}%
@@ -841,7 +846,7 @@ export default function GradebookScreen() {
                                 variant="small"
                                 style={{
                                   fontWeight: "700",
-                                  color: letterColor(final.letterGrade),
+                                  color: letterColor(final.letterGrade, colors, resolvedMode),
                                 }}
                               >
                                 {final.letterGrade}

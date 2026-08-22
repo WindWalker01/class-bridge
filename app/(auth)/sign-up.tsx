@@ -1,11 +1,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { z } from "zod";
 
-import { Button, FadeInUp, Screen, TextField, ThemedText, useToast } from "@/components";
+import {
+  AuthHeader,
+  Button,
+  FadeInUp,
+  PasswordField,
+  Screen,
+  TextField,
+  useToast,
+} from "@/components";
 import { appConfig } from "@/constants/config";
 import { spacing } from "@/constants/theme";
 import { Routes } from "@/lib/navigation";
@@ -31,8 +38,6 @@ type SignUpForm = z.infer<typeof signUpSchema>;
 export default function SignUpScreen() {
   const router = useRouter();
   const { show } = useToast();
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   const {
     handleSubmit,
@@ -71,8 +76,10 @@ export default function SignUpScreen() {
         <View style={{ flex: 1, justifyContent: "center" }}>
           <FadeInUp>
             <View style={{ gap: spacing.md }}>
-              <ThemedText variant="display">{appConfig.name}</ThemedText>
-              <ThemedText muted>Create your account to get started.</ThemedText>
+              <AuthHeader
+                title={appConfig.name}
+                subtitle="Create your account to get started."
+              />
 
               <TextField
                 label="Email"
@@ -86,36 +93,22 @@ export default function SignUpScreen() {
                 }
               />
 
-              <TextField
+              <PasswordField
                 label="Password"
                 placeholder="••••••••"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
                 error={errors.password?.message}
                 onChangeText={(text) =>
                   setValue("password", text, { shouldValidate: true })
                 }
               />
-              <Button
-                variant="ghost"
-                label={showPassword ? "Hide password" : "Show password"}
-                onPress={() => setShowPassword((prev) => !prev)}
-              />
 
-              <TextField
+              <PasswordField
                 label="Confirm password"
                 placeholder="••••••••"
-                secureTextEntry={!showConfirm}
-                autoCapitalize="none"
                 error={errors.confirmPassword?.message}
                 onChangeText={(text) =>
                   setValue("confirmPassword", text, { shouldValidate: true })
                 }
-              />
-              <Button
-                variant="ghost"
-                label={showConfirm ? "Hide password" : "Show password"}
-                onPress={() => setShowConfirm((prev) => !prev)}
               />
 
               <Button

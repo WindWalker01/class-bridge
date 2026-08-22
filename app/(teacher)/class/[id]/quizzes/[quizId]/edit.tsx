@@ -27,7 +27,8 @@ import {
 } from "@/components";
 import DraggableQuestionList from "@/components/DraggableQuestionList";
 import GamifiedTiersEditor from "@/components/GamifiedTiersEditor";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import { modeColor, radii, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { useGradeCategories } from "@/hooks/useGradeEngine";
 import { useQuizBuilder } from "@/hooks/useQuizBuilder";
 import type {
@@ -43,7 +44,7 @@ import { DEFAULT_SPEED_BONUS_TIERS } from "@/types";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const accent = getAccent("teacher");
+
 
 const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   mcq: "Multiple Choice",
@@ -79,6 +80,7 @@ function QuestionForm({
   onCancel: () => void;
   quizMode: string;
 }) {
+  const { colors, accent } = useTheme();
   const [type, setType] = useState<QuestionType>(initial?.type ?? "mcq");
   const [prompt, setPrompt] = useState(initial?.prompt ?? "");
   const [points, setPoints] = useState(String(initial?.points ?? 1));
@@ -329,7 +331,7 @@ function QuestionForm({
               style={{
                 flex: 1,
                 backgroundColor:
-                  tfAnswer === true ? "#dcfce7" : colors.surfaceMuted,
+                  tfAnswer === true ? colors.success + "18" : colors.surfaceMuted,
                 borderRadius: radii.sm,
                 borderWidth: 1,
                 borderColor: tfAnswer === true ? colors.success : colors.border,
@@ -351,7 +353,7 @@ function QuestionForm({
               style={{
                 flex: 1,
                 backgroundColor:
-                  tfAnswer === false ? "#fee2e2" : colors.surfaceMuted,
+                  tfAnswer === false ? colors.danger + "18" : colors.surfaceMuted,
                 borderRadius: radii.sm,
                 borderWidth: 1,
                 borderColor: tfAnswer === false ? colors.danger : colors.border,
@@ -436,6 +438,7 @@ function QuestionCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { colors, accent, resolvedMode } = useTheme();
   const getAnswerPreview = (): string => {
     if (question.type === "mcq") {
       const key =
@@ -568,7 +571,7 @@ function QuestionCard({
         <Pressable
           onPress={onDelete}
           style={{
-            backgroundColor: "#fee2e2",
+            backgroundColor: colors.danger + "18",
             borderRadius: radii.sm,
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.xs,
@@ -611,7 +614,7 @@ function QuestionCard({
 export default function EditQuizScreen() {
   const { id, quizId } = useLocalSearchParams<{ id: string; quizId: string }>();
   const classId = id ?? "";
-
+  const { colors, accent } = useTheme();
   const {
     quiz,
     questions,
@@ -911,7 +914,7 @@ export default function EditQuizScreen() {
             </View>
             <View
               style={{
-                backgroundColor: isPublished ? "#dcfce7" : "#f1f5f9",
+                backgroundColor: isPublished ? colors.success + "18" : colors.surfaceMuted,
                 borderRadius: radii.pill,
                 paddingHorizontal: spacing.sm,
                 paddingVertical: 2,

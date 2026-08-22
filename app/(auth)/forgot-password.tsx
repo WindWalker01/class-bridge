@@ -1,11 +1,17 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, type Href } from "expo-router";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { z } from "zod";
 
-import { Button, FadeInUp, Screen, TextField, ThemedText, useToast } from "@/components";
+import {
+  AuthHeader,
+  Button,
+  FadeInUp,
+  Screen,
+  TextField,
+  useToast,
+} from "@/components";
 import { spacing } from "@/constants/theme";
 import { Routes } from "@/lib/navigation";
 import { supabase } from "@/lib/supabase";
@@ -54,11 +60,10 @@ export default function ForgotPasswordScreen() {
         <View style={{ flex: 1, justifyContent: "center" }}>
           <FadeInUp>
             <View style={{ gap: spacing.md }}>
-              <ThemedText variant="title">Forgot password?</ThemedText>
-              <ThemedText muted>
-                Enter your email address and we'll send you a 6-digit code to reset
-                your password.
-              </ThemedText>
+              <AuthHeader
+                title="Forgot password?"
+                subtitle="Enter your email address and we'll send you a 6-digit code to reset your password."
+              />
 
               <TextField
                 label="Email"

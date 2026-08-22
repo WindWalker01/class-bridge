@@ -1,5 +1,4 @@
-import { router } from "expo-router";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Archive, Plus } from "lucide-react-native";
 import { useCallback } from "react";
 import {
@@ -11,7 +10,7 @@ import {
 
 import {
   AnimatedListItem,
-  Card,
+  ClassCard,
   EmptyState,
   FadeInView,
   IconButton,
@@ -42,50 +41,33 @@ export default function TeacherHomeScreen() {
   );
 
   const renderClassCard = ({ item }: { item: ClassWithCount }) => (
-    <Card
-      variant="elevated"
-      onPress={() => {
-        const { router } = require("expo-router");
-        router.push(Routes.classFeed(item.id));
-      }}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <View style={{ flex: 1, gap: spacing.xs }}>
-          <ThemedText variant="heading" numberOfLines={1}>
-            {item.name}
-          </ThemedText>
-          <ThemedText variant="caption" muted>
-            {item.subject}
-            {item.section ? ` · ${item.section}` : ""}
-          </ThemedText>
-        </View>
+    <ClassCard
+      title={item.name}
+      subtitle={`${item.subject}${item.section ? ` · ${item.section}` : ""}`}
+      badge={`${item.student_count} ${item.student_count === 1 ? "student" : "students"}`}
+      onPress={() => router.push(Routes.classFeed(item.id))}
+      footer={
         <View
           style={{
-            backgroundColor: accent.accentSoft,
-            borderRadius: radii.pill,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.xs,
+            backgroundColor: colors.surfaceMuted,
+            borderRadius: radii.sm,
+            paddingHorizontal: spacing.sm + 2,
+            paddingVertical: 3,
           }}
         >
           <ThemedText
             variant="small"
-            style={{ color: accent.accentText, fontWeight: "600" }}
+            style={{
+              color: colors.textMuted,
+              fontWeight: "600",
+              letterSpacing: 1.5,
+            }}
           >
-            {item.student_count}{" "}
-            {item.student_count === 1 ? "student" : "students"}
+            {item.class_code}
           </ThemedText>
         </View>
-      </View>
-      <ThemedText variant="small" muted>
-        Code: {item.class_code}
-      </ThemedText>
-    </Card>
+      }
+    />
   );
 
   const renderEmpty = () => {
@@ -204,10 +186,7 @@ export default function TeacherHomeScreen() {
           backgroundColor={accent.accent}
           color={colors.white}
           size={28}
-          onPress={() => {
-            const { router } = require("expo-router");
-            router.push(Routes.createClass);
-          }}
+          onPress={() => router.push(Routes.createClass)}
           style={{
             position: "absolute",
             bottom: spacing.lg,

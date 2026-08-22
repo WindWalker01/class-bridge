@@ -28,7 +28,8 @@ import {
   usePressAnimation,
   useToast,
 } from "@/components";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import { modeColor, radii, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { haptics } from "@/lib/haptics";
 import { useQuizTaking } from "@/hooks/useQuizTaking";
 import type { MCQOption, Question } from "@/types";
@@ -36,8 +37,6 @@ import type { MCQOption, Question } from "@/types";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const accent = getAccent("student");
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -70,10 +69,20 @@ function StartScreen({
   onStart: () => void;
   loading: boolean;
 }) {
+  const { resolvedMode } = useTheme();
   const modeLabels: Record<string, { label: string; color: string }> = {
-    standard: { label: "Standard", color: "#2563eb" },
-    timed: { label: "Timed", color: "#d97706" },
-    gamified: { label: "Gamified", color: "#7c3aed" },
+    standard: {
+      label: "Standard",
+      color: modeColor(resolvedMode, "#2563eb", "#60a5fa"),
+    },
+    timed: {
+      label: "Timed",
+      color: modeColor(resolvedMode, "#d97706", "#fbbf24"),
+    },
+    gamified: {
+      label: "Gamified",
+      color: modeColor(resolvedMode, "#7c3aed", "#a78bfa"),
+    },
   };
   const modeInfo = modeLabels[mode] ?? modeLabels.standard;
   const isOverdue = dueAt ? new Date(dueAt) < new Date() : false;
@@ -171,7 +180,9 @@ function StartScreen({
                 variant="caption"
                 style={{
                   fontWeight: "600",
-                  color: isOverdue ? "#dc2626" : undefined,
+                  color: isOverdue
+                    ? modeColor(resolvedMode, "#dc2626", "#f87171")
+                    : undefined,
                 }}
               >
                 {new Date(dueAt).toLocaleDateString(undefined, {
@@ -189,12 +200,15 @@ function StartScreen({
           {mode === "gamified" && (
             <View
               style={{
-                backgroundColor: "#f3e8ff",
+                backgroundColor: modeColor(resolvedMode, "#f3e8ff", "#3b0764"),
                 borderRadius: radii.sm,
                 padding: spacing.sm,
               }}
             >
-              <ThemedText variant="small" style={{ color: "#7c3aed" }}>
+              <ThemedText
+                variant="small"
+                style={{ color: modeColor(resolvedMode, "#7c3aed", "#c4b5fd") }}
+              >
                 {
                   "🎮 Speed bonuses: 2x for <5s, 1.5x for <15s, 1.25x for <30s. Streak tracking enabled!"
                 }
@@ -206,12 +220,15 @@ function StartScreen({
         {isOverdue && (
           <View
             style={{
-              backgroundColor: "#fef2f2",
+              backgroundColor: modeColor(resolvedMode, "#fef2f2", "#450a0a"),
               borderRadius: radii.sm,
               padding: spacing.sm,
             }}
           >
-            <ThemedText variant="small" style={{ color: "#dc2626" }}>
+            <ThemedText
+              variant="small"
+              style={{ color: modeColor(resolvedMode, "#dc2626", "#f87171") }}
+            >
               This quiz deadline has passed. You can no longer start this quiz.
             </ThemedText>
           </View>
@@ -242,6 +259,7 @@ function MCQOptionItem({
   isSelected: boolean;
   onSelect: (key: string) => void;
 }) {
+  const { colors, accent } = useTheme();
   const { animatedStyle, pressIn, pressOut } = usePressAnimation({
     hapticOnPress: !isSelected, // haptic only on first select
     scale: 0.97,
@@ -324,6 +342,7 @@ function TrueFalseButton({
   selectedColor: string;
   borderColor: string;
 }) {
+  const { colors } = useTheme();
   const { animatedStyle, pressIn, pressOut } = usePressAnimation({
     hapticOnPress: !isSelected,
     scale: 0.96,
@@ -377,6 +396,7 @@ function AnimatedTimer({
   timeLeft: number;
   totalSeconds: number;
 }) {
+  const { colors } = useTheme();
   const progress = (timeLeft / totalSeconds) * 100;
   const pulseScale = useSharedValue(1);
   const hasWarned = useRef(false);
@@ -436,6 +456,7 @@ function AnimatedTimer({
 // ---------------------------------------------------------------------------
 
 function AnimatedStreakBadge({ streak }: { streak: number }) {
+  const { resolvedMode } = useTheme();
   const flameScale = useSharedValue(1);
 
   useEffect(() => {
@@ -458,7 +479,7 @@ function AnimatedStreakBadge({ streak }: { streak: number }) {
     <Animated.View style={animatedStyle}>
       <Zap
         size={flameSize}
-        color="#7c3aed"
+        color={modeColor(resolvedMode, "#7c3aed", "#a78bfa")}
         strokeWidth={2.5}
       />
     </Animated.View>
@@ -481,12 +502,13 @@ SpeedBonusIndicator = function SpeedBonusIndicator({
   bonusMultiplier,
   visible,
 }) {
+  const { resolvedMode } = useTheme();
   if (!visible) return null;
   return (
     <ScaleInView>
       <View
         style={{
-          backgroundColor: "#f3e8ff",
+          backgroundColor: modeColor(resolvedMode, "#f3e8ff", "#3b0764"),
           borderRadius: radii.pill,
           paddingHorizontal: spacing.sm,
           paddingVertical: 2,
@@ -494,10 +516,13 @@ SpeedBonusIndicator = function SpeedBonusIndicator({
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
-          <Zap size={14} color="#7c3aed" />
+          <Zap size={14} color={modeColor(resolvedMode, "#7c3aed", "#a78bfa")} />
           <ThemedText
             variant="small"
-            style={{ color: "#7c3aed", fontWeight: "700" }}
+            style={{
+              color: modeColor(resolvedMode, "#7c3aed", "#c4b5fd"),
+              fontWeight: "700",
+            }}
           >
             {bonusMultiplier}x Speed Bonus!
           </ThemedText>
@@ -545,6 +570,7 @@ function QuestionScreen({
   runningScore: number;
   speedBonus: { multiplier: number } | null;
 }) {
+  const { colors, accent, resolvedMode } = useTheme();
   const [mcqSelected, setMcqSelected] = useState<string | null>(
     selectedAnswer &&
       typeof selectedAnswer === "object" &&
@@ -622,7 +648,9 @@ function QuestionScreen({
             <View
               style={{
                 backgroundColor:
-                  overallTimeLeft <= 60 ? "#fee2e2" : colors.surfaceMuted,
+                  overallTimeLeft <= 60
+                    ? colors.danger + "18"
+                    : colors.surfaceMuted,
                 borderRadius: radii.pill,
                 paddingHorizontal: spacing.sm,
                 paddingVertical: 2,
@@ -668,7 +696,7 @@ function QuestionScreen({
             {/* Animated score */}
             <View
               style={{
-                backgroundColor: "#dcfce7",
+                backgroundColor: colors.success + "18",
                 borderRadius: radii.pill,
                 paddingHorizontal: spacing.sm,
                 paddingVertical: 2,
@@ -761,14 +789,14 @@ function QuestionScreen({
               label="True"
               isSelected={tfSelected === true}
               onPress={() => handleTFSelect(true)}
-              selectedColor="#dcfce7"
+              selectedColor={colors.success + "22"}
               borderColor={colors.success}
             />
             <TrueFalseButton
               label="False"
               isSelected={tfSelected === false}
               onPress={() => handleTFSelect(false)}
-              selectedColor="#fee2e2"
+              selectedColor={colors.danger + "22"}
               borderColor={colors.danger}
             />
           </View>
@@ -828,6 +856,7 @@ function ReviewScreen({
   isGraded?: boolean;
   correctAnswerMap?: Map<string, string | boolean | { key: string }>;
 }) {
+  const { colors, accent } = useTheme();
   const answeredCount = answers.size;
   const unansweredCount = questions.length - answeredCount;
 
@@ -945,7 +974,7 @@ function ReviewScreen({
                   {showCorrectAnim ? (
                     <View
                       style={{
-                        backgroundColor: "#dcfce7",
+                        backgroundColor: colors.success + "18",
                         borderRadius: radii.pill,
                         paddingHorizontal: spacing.sm,
                         paddingVertical: 2,
@@ -965,7 +994,7 @@ function ReviewScreen({
                   ) : (
                     <View
                       style={{
-                        backgroundColor: "#fee2e2",
+                        backgroundColor: colors.danger + "18",
                         borderRadius: radii.pill,
                         paddingHorizontal: spacing.sm,
                         paddingVertical: 2,
@@ -987,7 +1016,7 @@ function ReviewScreen({
               ) : isAnswered ? (
                 <View
                   style={{
-                    backgroundColor: "#dcfce7",
+                    backgroundColor: colors.success + "18",
                     borderRadius: radii.pill,
                     paddingHorizontal: spacing.sm,
                     paddingVertical: 2,
@@ -1003,7 +1032,7 @@ function ReviewScreen({
               ) : (
                 <View
                   style={{
-                    backgroundColor: "#fee2e2",
+                    backgroundColor: colors.danger + "18",
                     borderRadius: radii.pill,
                     paddingHorizontal: spacing.sm,
                     paddingVertical: 2,
@@ -1084,6 +1113,7 @@ function ResultsScreen({
   const isStrongScore = percent !== null && percent >= 80;
   const [confettiActive, setConfettiActive] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const { colors } = useTheme();
 
   useEffect(() => {
     // Trigger reveal animation with a short delay for dramatic effect
@@ -1252,6 +1282,7 @@ export default function TakeQuizScreen() {
   const [showReview, setShowReview] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [showGradedReview, setShowGradedReview] = useState(false);
+  const { colors } = useTheme();
   const [correctAnswerMap, setCorrectAnswerMap] = useState<
     Map<string, string | boolean | { key: string }> | null
   >(null);

@@ -13,7 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 
-import { colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,22 +57,27 @@ export function CircularProgress({
   progress,
   size = 64,
   strokeWidth = 6,
-  activeColor = colors.success,
-  warningColor = colors.warning,
-  dangerColor = colors.danger,
+  activeColor,
+  warningColor,
+  dangerColor,
   warningThreshold = 30,
   dangerThreshold = 10,
-  trackColor = colors.surfaceMuted,
+  trackColor,
   duration = 300,
   children,
 }: CircularProgressProps) {
+  const { colors: themeColors } = useTheme();
+  const resolvedActive = activeColor ?? themeColors.success;
+  const resolvedWarning = warningColor ?? themeColors.warning;
+  const resolvedDanger = dangerColor ?? themeColors.danger;
+  const resolvedTrack = trackColor ?? themeColors.surfaceMuted;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const halfSize = size / 2;
 
   // Shared values for animation
   const animatedProgress = useSharedValue(0);
-  const animatedColor = useSharedValue(activeColor);
+  const animatedColor = useSharedValue(resolvedActive);
 
   useEffect(() => {
     animatedProgress.value = withTiming(Math.max(0, Math.min(100, progress)), {
@@ -80,18 +85,18 @@ export function CircularProgress({
     });
 
     // Determine color based on thresholds
-    let targetColor = activeColor;
+    let targetColor = resolvedActive;
     if (progress <= dangerThreshold) {
-      targetColor = dangerColor;
+      targetColor = resolvedDanger;
     } else if (progress <= warningThreshold) {
-      targetColor = warningColor;
+      targetColor = resolvedWarning;
     }
     animatedColor.value = withTiming(targetColor, { duration });
   }, [
     progress,
-    activeColor,
-    warningColor,
-    dangerColor,
+    resolvedActive,
+    resolvedWarning,
+    resolvedDanger,
     warningThreshold,
     dangerThreshold,
     duration,
@@ -116,7 +121,7 @@ export function CircularProgress({
           cx={halfSize}
           cy={halfSize}
           r={radius}
-          stroke={trackColor}
+          stroke={resolvedTrack}
           strokeWidth={strokeWidth}
           fill="none"
         />

@@ -5,7 +5,7 @@ import { BookOpen } from "lucide-react-native";
 
 import {
   AnimatedListItem,
-  Card,
+  ClassCard,
   EmptyState,
   FadeInView,
   Screen,
@@ -22,7 +22,7 @@ import { Routes } from "@/lib/navigation";
 import type { ClassWithTeacher } from "@/types";
 
 export default function StudentHomeScreen() {
-  const { colors, accent } = useTheme();
+  const { accent } = useTheme();
   const { isTablet } = useResponsive();
   const router = useRouter();
   const { profile } = useAuth();
@@ -37,43 +37,22 @@ export default function StudentHomeScreen() {
 
 
   const renderClassCard = ({ item }: { item: ClassWithTeacher }) => (
-    <Card
-      variant="elevated"
+    <ClassCard
+      title={item.name}
+      subtitle={`${item.subject}${item.section ? ` · ${item.section}` : ""}`}
       onPress={() => router.push(Routes.studentClassFeed(item.id))}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <View style={{ flex: 1, gap: spacing.xs }}>
-          <ThemedText variant="heading" numberOfLines={1}>
-            {item.name}
+      footer={
+        <>
+          <Avatar
+            name={item.teacher?.full_name ?? "Unknown"}
+            size={24}
+          />
+          <ThemedText variant="small" muted numberOfLines={1}>
+            {item.teacher?.full_name ?? "Unknown Teacher"}
           </ThemedText>
-          <ThemedText variant="caption" muted>
-            {item.subject}
-            {item.section ? ` · ${item.section}` : ""}
-          </ThemedText>
-        </View>
-      </View>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: spacing.sm,
-        }}
-      >
-        <Avatar
-          name={item.teacher?.full_name ?? "Unknown"}
-          size={24}
-        />
-        <ThemedText variant="small" muted>
-          {item.teacher?.full_name ?? "Unknown Teacher"}
-        </ThemedText>
-      </View>
-    </Card>
+        </>
+      }
+    />
   );
 
   const renderEmpty = () => {

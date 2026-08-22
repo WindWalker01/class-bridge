@@ -21,12 +21,11 @@ import {
   useToast,
 } from "@/components";
 import {
-  colors,
-  getAccent,
   radii,
   spacing,
   typography,
 } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { useClass } from "@/hooks/useClasses";
 import {
   useGradeCategories,
@@ -69,7 +68,7 @@ function totalWeight(items: EditableCategory[]): number {
 export default function GradeSettingsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const classId = id ?? "";
-  const accent = getAccent("teacher");
+  const { colors, accent } = useTheme();
   const { classData } = useClass(classId);
   const { categories, loading } = useGradeCategories(classId);
   const { save, saving } = useSaveGradeCategories(classId);

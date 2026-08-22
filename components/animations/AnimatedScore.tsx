@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Text } from "react-native";
 
-import { colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 // ---------------------------------------------------------------------------
 // Utils
@@ -42,6 +42,7 @@ export function AnimatedScore({
   style,
   suffix = "",
 }: AnimatedScoreProps) {
+  const { colors } = useTheme();
   const [displayValue, setDisplayValue] = useState(value);
   const prevValueRef = useRef(value);
   const frameRef = useRef<ReturnType<typeof setInterval> | null>(null);

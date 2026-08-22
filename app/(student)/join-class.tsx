@@ -13,7 +13,8 @@ import {
   useToast,
 } from "@/components";
 import { Avatar } from "@/components/Avatar";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import { radii, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { Routes } from "@/lib/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -27,7 +28,7 @@ type LookupState =
   | { stage: "error"; message: string };
 
 export default function JoinClassScreen() {
-  const accent = getAccent("student");
+  const { colors, accent } = useTheme();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const { show } = useToast();

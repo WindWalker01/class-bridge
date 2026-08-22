@@ -1,10 +1,13 @@
 export { Avatar } from "./Avatar";
+export { AuthHeader } from "./AuthHeader";
 export { Badge } from "./Badge";
 export { Button } from "./Button";
 export { Card } from "./Card";
+export { ClassCard } from "./ClassCard";
 export { EmptyState } from "./EmptyState";
 export { ErrorState } from "./ErrorState";
 export { IconButton } from "./IconButton";
+export { PasswordField } from "./PasswordField";
 export { Screen } from "./Screen";
 export { ScreenHeader } from "./ScreenHeader";
 export { Skeleton, SkeletonCard, SkeletonRow, SkeletonText } from "./Skeleton";

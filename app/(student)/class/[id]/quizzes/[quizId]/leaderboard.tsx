@@ -31,7 +31,7 @@ import {
   SkeletonRow,
   ThemedText,
 } from "@/components";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import { modeColor, radii, spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
@@ -60,6 +60,7 @@ function formatDate(iso: string): string {
 // ---------------------------------------------------------------------------
 
 function PulsingDot() {
+  const { colors } = useTheme();
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);
 
@@ -105,6 +106,7 @@ function RankChangeIndicator({
 }: {
   rankChange: "up" | "down" | "same" | null;
 }) {
+  const { colors } = useTheme();
   if (rankChange === "same" || rankChange === null) return null;
 
   const isUp = rankChange === "up";
@@ -135,7 +137,7 @@ function LeaderboardCard({
   isCurrentUser: boolean;
   rankChange: "up" | "down" | "same" | null;
 }) {
-  const { accent } = useTheme();
+  const { colors, accent } = useTheme();
   const medalColor = MEDAL_COLORS[entry.rank];
   const isRankOne = entry.rank === 1;
 
@@ -240,8 +242,7 @@ export default function LeaderboardScreen() {
   const { entries, loading, refreshing, refresh } = useLeaderboard(
     quizId ?? "",
   );
-  const { accent } = useTheme();
-
+  const { colors, accent, resolvedMode } = useTheme();
   // Track previous ranks for change detection
   const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [rankChanges, setRankChanges] = useState<Map<string, "up" | "down" | "same" | null>>(new Map());
@@ -308,7 +309,7 @@ export default function LeaderboardScreen() {
             alignItems: "center",
             gap: spacing.sm,
             marginBottom: spacing.md,
-            backgroundColor: "#dcfce7",
+            backgroundColor: modeColor(resolvedMode, "#dcfce7", "#052e16"),
             borderRadius: radii.pill,
             paddingHorizontal: spacing.sm,
             paddingVertical: spacing.xs,

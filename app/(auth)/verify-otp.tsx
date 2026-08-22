@@ -22,7 +22,8 @@ import {
   ThemedText,
   useToast,
 } from "@/components";
-import { colors, radii, spacing } from "@/constants/theme";
+import { radii, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { haptics } from "@/lib/haptics";
 import { Routes } from "@/lib/navigation";
 import { supabase } from "@/lib/supabase";
@@ -47,6 +48,7 @@ function OtpCell({
   inputRef: (ref: TextInput | null) => void;
   autoFocus?: boolean;
 }) {
+  const { colors } = useTheme();
   const filled = useSharedValue(value ? 1 : 0);
 
   useEffect(() => {
@@ -245,7 +247,9 @@ export default function VerifyOtpScreen() {
 
               {/* Resend section */}
               <View style={{ alignItems: "center", gap: spacing.sm }}>
-                <ThemedText muted>Didn't receive the code?</ThemedText>
+                  <ThemedText muted>
+                    {"Didn't receive the code?"}
+                  </ThemedText>
                 {resendCooldown > 0 ? (
                   <Badge
                     label={`Resend available in ${resendCooldown}s`}
