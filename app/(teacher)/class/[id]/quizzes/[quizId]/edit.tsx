@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { Button, Screen, TextField, ThemedText } from "@/components";
+import DraggableQuestionList from "@/components/DraggableQuestionList";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
 import { useQuizBuilder } from "@/hooks/useQuizBuilder";
 import type { MCQOption, Question, QuestionType } from "@/types";
@@ -387,19 +388,11 @@ function QuestionCard({
   index,
   onEdit,
   onDelete,
-  onMoveUp,
-  onMoveDown,
-  isFirst,
-  isLast,
 }: {
   question: Question;
   index: number;
   onEdit: () => void;
   onDelete: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  isFirst: boolean;
-  isLast: boolean;
 }) {
   const getAnswerPreview = (): string => {
     if (question.type === "mcq") {
@@ -428,6 +421,22 @@ function QuestionCard({
         gap: spacing.sm,
       }}
     >
+{/* Drag handle row */}
+      <View
+        style={{
+          alignItems: "center",
+          paddingBottom: spacing.xs,
+          marginBottom: -spacing.xs,
+        }}
+      >
+        <ThemedText
+          variant="small"
+          muted
+          style={{ letterSpacing: 4, fontSize: 18, lineHeight: 12 }}
+        >
+          ⠿
+        </ThemedText>
+      </View>
       <View
         style={{
           flexDirection: "row",
@@ -531,32 +540,23 @@ function QuestionCard({
           </ThemedText>
         </Pressable>
         <View style={{ flex: 1 }} />
-        {!isFirst && (
-          <Pressable
-            onPress={onMoveUp}
-            style={{
-              backgroundColor: colors.surfaceMuted,
-              borderRadius: radii.sm,
-              paddingHorizontal: spacing.sm,
-              paddingVertical: spacing.xs,
-            }}
+        {/* Drag hint */}
+        <View
+          style={{
+            backgroundColor: colors.surfaceMuted,
+            borderRadius: radii.sm,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs,
+          }}
+        >
+          <ThemedText
+            variant="small"
+            muted
+            style={{ fontSize: 10, lineHeight: 14 }}
           >
-            <ThemedText variant="small">↑</ThemedText>
-          </Pressable>
-        )}
-        {!isLast && (
-          <Pressable
-            onPress={onMoveDown}
-            style={{
-              backgroundColor: colors.surfaceMuted,
-              borderRadius: radii.sm,
-              paddingHorizontal: spacing.sm,
-              paddingVertical: spacing.xs,
-            }}
-          >
-            <ThemedText variant="small">↓</ThemedText>
-          </Pressable>
-        )}
+            ⟷ drag
+          </ThemedText>
+        </View>
       </View>
     </View>
   );
@@ -589,6 +589,7 @@ export default function EditQuizScreen() {
   const [titleValue, setTitleValue] = useState("");
   const [editDesc, setEditDesc] = useState(false);
   const [descValue, setDescValue] = useState("");
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const handleAddQuestion = async (data: {
     type: QuestionType;
@@ -628,26 +629,6 @@ export default function EditQuizScreen() {
         },
       ],
     );
-  };
-
-  const handleMoveUp = (index: number) => {
-    if (index <= 0) return;
-    const newOrder = [...questions];
-    [newOrder[index - 1], newOrder[index]] = [
-      newOrder[index],
-      newOrder[index - 1],
-    ];
-    void reorderQuestions(newOrder.map((q) => q.id));
-  };
-
-  const handleMoveDown = (index: number) => {
-    if (index >= questions.length - 1) return;
-    const newOrder = [...questions];
-    [newOrder[index], newOrder[index + 1]] = [
-      newOrder[index + 1],
-      newOrder[index],
-    ];
-    void reorderQuestions(newOrder.map((q) => q.id));
   };
 
   const handleSaveTitle = async () => {
@@ -692,6 +673,7 @@ export default function EditQuizScreen() {
     <Screen>
       <ScrollView
         style={{ flex: 1 }}
+        scrollEnabled={scrollEnabled}
         contentContainerStyle={{ paddingBottom: spacing.xxl }}
         showsVerticalScrollIndicator={false}
       >
@@ -923,10 +905,12 @@ export default function EditQuizScreen() {
               </ThemedText>
             </View>
           ) : (
-            <View style={{ gap: spacing.md }}>
-              {questions.map((question, index) => (
+            <DraggableQuestionList
+              questions={questions}
+              onReorder={reorderQuestions}
+              onScrollChange={setScrollEnabled}
+              renderItem={(question, index) => (
                 <QuestionCard
-                  key={question.id}
                   question={question}
                   index={index}
                   onEdit={() => {
@@ -934,13 +918,9 @@ export default function EditQuizScreen() {
                     setShowQuestionForm(false);
                   }}
                   onDelete={() => handleDeleteQuestion(question.id)}
-                  onMoveUp={() => handleMoveUp(index)}
-                  onMoveDown={() => handleMoveDown(index)}
-                  isFirst={index === 0}
-                  isLast={index === questions.length - 1}
                 />
-              ))}
-            </View>
+              )}
+            />
           )}
         </View>
       </ScrollView>

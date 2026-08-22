@@ -160,21 +160,23 @@ export function useQuizBuilder(quizId: string) {
 
   const reorderQuestions = async (orderedIds: string[]) => {
     setSaving(true);
-    // Update each question's order_index
-    const updates = orderedIds.map((id, index) => ({
-      id,
-      order_index: index,
-    }));
 
-    const { error } = await supabase.from("questions").upsert(
-      updates.map((u) => ({
-        id: u.id,
-        order_index: u.order_index,
-      })),
+    // Update each question's order_index individually via UPDATE.
+    // We cannot use upsert here because the upsert payload lacks quiz_id,
+    // which causes the INSERT-branch of the RLS `with check` to fail (42501).
+    // UPDATE uses the `using` clause (existing row has quiz_id), so RLS passes.
+    const results = await Promise.all(
+      orderedIds.map((id, index) =>
+        supabase
+          .from("questions")
+          .update({ order_index: index })
+          .eq("id", id),
+      ),
     );
 
-    if (error) {
-      console.error("[useQuizBuilder] reorder error:", error);
+    const errors = results.filter((r) => r.error);
+    if (errors.length > 0) {
+      console.error("[useQuizBuilder] reorder error:", errors[0].error);
     } else {
       setQuestions((prev) => {
         const map = new Map(prev.map((q) => [q.id, q]));
