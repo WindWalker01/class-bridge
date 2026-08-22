@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { supabase } from "@/lib/supabase";
+import { supabase, retryWithBackoff } from "@/lib/supabase";
 import type { Profile, Session, User } from "@/types";
 
 interface AuthState {
@@ -48,7 +48,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     try {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await retryWithBackoff(() => supabase.auth.getSession(), 3, 600);
       const session = data.session;
 
       set({

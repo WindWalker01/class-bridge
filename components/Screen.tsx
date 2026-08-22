@@ -39,7 +39,7 @@ export function Screen({
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: colors.background }}
-      edges={["top", "left", "right"]}
+      edges={["top", "left", "right", "bottom"]}
     >
       {content}
     </SafeAreaView>

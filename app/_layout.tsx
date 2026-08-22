@@ -1,6 +1,7 @@
 import "../global.css";
 
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -25,6 +26,17 @@ export default function RootLayout() {
       void initialize();
     }
   }, [hasInitialized, initialize]);
+
+  // Safety net: force-hide the native splash screen after 5 s regardless of
+  // initialization state so the user never stares at a frozen splash.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {
+        // ignore — splash may already be gone
+      });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Subscribe to auth state changes
   useEffect(() => {

@@ -6,6 +6,29 @@ import { supabaseConfig } from "@/constants/config";
 const STORAGE_KEY = "classbridge.supabase.auth.token";
 
 /**
+ * Simple retry-with-exponential-backoff for async operations that can fail
+ * transiently (e.g. network blips, rate limits).
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelayMs = 500,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt >= maxRetries - 1) throw err;
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 200;
+      console.warn(
+        `[class-bridge] Retry attempt ${attempt + 1}/${maxRetries} after ${Math.round(delay)}ms`,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+}
+
+/**
  * A Supabase-compatible storage adapter backed by `expo-secure-store`.
  *
  * Supabase persists its session JSON through `auth.storage`, so wiring it to
@@ -61,3 +84,6 @@ if (!url || !anonKey) {
 
 /** The key used to persist the Supabase auth session in SecureStore. */
 export { STORAGE_KEY };
+
+/** Retry utility for transient failures (rate limits, network blips). */
+export { retryWithBackoff };
