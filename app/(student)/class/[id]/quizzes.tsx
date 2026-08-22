@@ -44,8 +44,10 @@ function formatDate(iso: string): string {
 
 function QuizCard({ quiz }: { quiz: QuizWithStudentStatus }) {
   const { colors, accent } = useTheme();
+  const isOverdue =
+    quiz.due_at !== null && new Date(quiz.due_at) < new Date();
   const isAvailable =
-    quiz.studentStatus === "not_started" ||
+    (quiz.studentStatus === "not_started" && !isOverdue) ||
     quiz.studentStatus === "in_progress";
 
   const statusTone = quiz.studentStatus === "graded" ? "success" : quiz.studentStatus === "submitted" ? "warning" : quiz.studentStatus === "in_progress" ? "accent" : "neutral";
@@ -119,9 +121,23 @@ function QuizCard({ quiz }: { quiz: QuizWithStudentStatus }) {
           alignItems: "center",
         }}
       >
-        <ThemedText variant="small" muted>
-          Created {formatDate(quiz.created_at)}
-        </ThemedText>
+        <View style={{ flexDirection: "row", gap: spacing.sm, alignItems: "center" }}>
+          <ThemedText variant="small" muted>
+            Created {formatDate(quiz.created_at)}
+          </ThemedText>
+          {quiz.due_at && (
+            <ThemedText
+              variant="small"
+              style={{
+                color: isOverdue ? colors.danger : colors.textMuted,
+                fontWeight: isOverdue ? "600" : "400",
+              }}
+            >
+              Due {formatDate(quiz.due_at)}
+              {isOverdue ? " (Past Due)" : ""}
+            </ThemedText>
+          )}
+        </View>
         {isAvailable ? (
           <Pressable
             onPress={() =>
@@ -143,6 +159,10 @@ function QuizCard({ quiz }: { quiz: QuizWithStudentStatus }) {
               {quiz.studentStatus === "in_progress" ? "Continue" : "Start Quiz"}
             </ThemedText>
           </Pressable>
+        ) : isOverdue && quiz.studentStatus === "not_started" ? (
+          <ThemedText variant="small" style={{ color: colors.danger }}>
+            Past Due
+          </ThemedText>
         ) : null}
       </View>
     </Card>

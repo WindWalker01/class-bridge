@@ -137,6 +137,7 @@ function CreateQuizForm({
 
 function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
   const tone = STATUS_TO_TONE[quiz.status];
+  const { colors } = useTheme();
 
   return (
     <Card
@@ -175,6 +176,18 @@ function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
         <ThemedText variant="small" muted>
           Created {formatDate(quiz.created_at)}
         </ThemedText>
+        {quiz.due_at && (
+          <ThemedText
+            variant="small"
+            muted
+            style={{
+              color: new Date(quiz.due_at) < new Date() ? colors.danger : colors.textMuted,
+            }}
+          >
+            Due {formatDate(quiz.due_at)}
+            {new Date(quiz.due_at) < new Date() ? " (Overdue)" : ""}
+          </ThemedText>
+        )}
       </View>
     </Card>
   );

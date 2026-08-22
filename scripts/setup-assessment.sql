@@ -9,7 +9,8 @@
 alter table public.quizzes
   add column if not exists mode text not null default 'standard'
     check (mode in ('standard', 'timed', 'gamified')),
-  add column if not exists time_limit_seconds int;
+  add column if not exists time_limit_seconds int,
+  add column if not exists due_at timestamptz;
 
 -- Update the status check constraint to include 'closed'
 alter table public.quizzes

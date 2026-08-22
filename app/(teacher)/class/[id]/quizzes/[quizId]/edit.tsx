@@ -1,12 +1,16 @@
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   View,
 } from "react-native";
-import { AlertCircle } from "lucide-react-native";
+import { AlertCircle, Calendar, X } from "lucide-react-native";
 
 import {
   AnimatedListItem,
@@ -603,6 +607,11 @@ export default function EditQuizScreen() {
   const [editDesc, setEditDesc] = useState(false);
   const [descValue, setDescValue] = useState("");
   const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [dueDate, setDueDate] = useState<Date | null>(
+    quiz?.due_at ? new Date(quiz.due_at) : null,
+  );
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const handleAddQuestion = async (data: {
     type: QuestionType;
@@ -633,6 +642,38 @@ export default function EditQuizScreen() {
     const wasPublished = quiz?.status === "published";
     await togglePublish();
     toast.show(wasPublished ? "Quiz unpublished!" : "Quiz published!");
+  };
+
+  const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDueDate((prev) => {
+        const updated = new Date(selectedDate);
+        if (prev) {
+          updated.setHours(prev.getHours(), prev.getMinutes(), prev.getSeconds());
+        } else {
+          updated.setHours(23, 59, 59, 999);
+        }
+        return updated;
+      });
+      setShowTimePicker(true);
+    }
+  };
+
+  const handleTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowTimePicker(false);
+    if (selectedDate && dueDate) {
+      const updated = new Date(dueDate);
+      updated.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+      setDueDate(updated);
+      // Persist the deadline immediately
+      void updateQuiz({ due_at: updated.toISOString() });
+    }
+  };
+
+  const handleClearDeadline = () => {
+    setDueDate(null);
+    void updateQuiz({ due_at: null });
   };
 
   const handleDeleteQuestion = (questionId: string) => {
@@ -850,6 +891,98 @@ export default function EditQuizScreen() {
                   {Math.floor(quiz.time_limit_seconds / 60)} min
                 </ThemedText>
               </View>
+            )}
+          </View>
+
+          {/* Deadline */}
+          <View style={{ marginTop: spacing.md }}>
+            <ThemedText
+              variant="caption"
+              style={{ fontWeight: "600", marginBottom: spacing.xs }}
+            >
+              Deadline
+            </ThemedText>
+            {dueDate ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing.sm,
+                }}
+              >
+                <Pressable
+                  onPress={() => setShowDatePicker(true)}
+                  style={({ pressed }: { pressed: boolean }) => ({
+                    flex: 1,
+                    backgroundColor: colors.surfaceMuted,
+                    borderRadius: radii.lg,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <ThemedText variant="body">
+                    {dueDate.toLocaleDateString(undefined, {
+                      weekday: "short",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    {dueDate.toLocaleTimeString(undefined, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={handleClearDeadline}
+                  style={({ pressed }: { pressed: boolean }) => ({
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: colors.surfaceMuted,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <X size={20} color={colors.textMuted} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => setShowDatePicker(true)}
+                style={({ pressed }: { pressed: boolean }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing.sm,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radii.lg,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <Calendar size={20} color={colors.textMuted} />
+                <ThemedText muted>No deadline set — tap to add</ThemedText>
+              </Pressable>
+            )}
+            {showDatePicker && (
+              <DateTimePicker
+                value={dueDate ?? new Date()}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                minimumDate={dueDate ? undefined : new Date()}
+                onChange={handleDateChange}
+              />
+            )}
+            {showTimePicker && dueDate && (
+              <DateTimePicker
+                value={dueDate}
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={handleTimeChange}
+              />
             )}
           </View>
 

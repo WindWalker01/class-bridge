@@ -88,6 +88,7 @@ export type Quiz = {
   description: string | null;
   mode: QuizMode;
   time_limit_seconds: number | null;
+  due_at: string | null;
   status: QuizStatus;
   created_at: string;
   updated_at: string;

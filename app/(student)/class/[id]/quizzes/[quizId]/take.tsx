@@ -56,6 +56,7 @@ function StartScreen({
   questionCount,
   totalPoints,
   timeLimit,
+  dueAt,
   onStart,
   loading,
 }: {
@@ -65,6 +66,7 @@ function StartScreen({
   questionCount: number;
   totalPoints: number;
   timeLimit: number | null;
+  dueAt: string | null;
   onStart: () => void;
   loading: boolean;
 }) {
@@ -74,6 +76,7 @@ function StartScreen({
     gamified: { label: "Gamified", color: "#7c3aed" },
   };
   const modeInfo = modeLabels[mode] ?? modeLabels.standard;
+  const isOverdue = dueAt ? new Date(dueAt) < new Date() : false;
 
   return (
     <View style={{ flex: 1 }}>
@@ -154,6 +157,35 @@ function StartScreen({
               </ThemedText>
             </View>
           )}
+          {dueAt && (
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+              }}
+            >
+              <ThemedText variant="caption" muted>
+                Deadline
+              </ThemedText>
+              <ThemedText
+                variant="caption"
+                style={{
+                  fontWeight: "600",
+                  color: isOverdue ? "#dc2626" : undefined,
+                }}
+              >
+                {new Date(dueAt).toLocaleDateString(undefined, {
+                  weekday: "short",
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                {isOverdue ? " (Past)" : ""}
+              </ThemedText>
+            </View>
+          )}
           {mode === "gamified" && (
             <View
               style={{
@@ -171,10 +203,25 @@ function StartScreen({
           )}
         </Card>
 
+        {isOverdue && (
+          <View
+            style={{
+              backgroundColor: "#fef2f2",
+              borderRadius: radii.sm,
+              padding: spacing.sm,
+            }}
+          >
+            <ThemedText variant="small" style={{ color: "#dc2626" }}>
+              This quiz deadline has passed. You can no longer start this quiz.
+            </ThemedText>
+          </View>
+        )}
+
         <Button
-          label="Start Quiz"
+          label={isOverdue ? "Deadline Passed" : "Start Quiz"}
           fullWidth
           loading={loading}
+          disabled={isOverdue}
           onPress={onStart}
         />
       </ScrollView>
@@ -1464,6 +1511,7 @@ const handleViewResults = () => {
           questionCount={questions.length}
           totalPoints={totalPoints}
           timeLimit={quiz?.time_limit_seconds ?? null}
+          dueAt={quiz?.due_at ?? null}
           onStart={handleStart}
           loading={loading}
         />

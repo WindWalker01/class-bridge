@@ -153,6 +153,14 @@ export function useQuizTaking(quizId: string) {
 
   const startAttempt = async () => {
     if (!quizId || !user || !quiz) return;
+
+    // Check deadline before starting
+    if (quiz.due_at && new Date(quiz.due_at) < new Date()) {
+      setError("This quiz deadline has passed. You can no longer start this quiz.");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     const { data, error: insertError } = await supabase

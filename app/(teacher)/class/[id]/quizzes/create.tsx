@@ -1,6 +1,9 @@
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Platform, Pressable, ScrollView, View } from "react-native";
 
 import {
   Button,
@@ -11,8 +14,8 @@ import {
   ThemedText,
   useToast,
 } from "@/components";
-import { BookOpen, Timer, Zap } from "lucide-react-native";
-import { modeColor, spacing } from "@/constants/theme";
+import { BookOpen, Calendar, Timer, X, Zap } from "lucide-react-native";
+import { modeColor, radii, spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { supabase } from "@/lib/supabase";
@@ -66,8 +69,42 @@ export default function CreateQuizScreen() {
   const [description, setDescription] = useState("");
   const [mode, setMode] = useState<QuizMode>("standard");
   const [timeLimitMinutes, setTimeLimitMinutes] = useState("");
+  const [dueDate, setDueDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDueDate((prev) => {
+        const updated = new Date(selectedDate);
+        if (prev) {
+          // Preserve previously set time
+          updated.setHours(prev.getHours(), prev.getMinutes(), prev.getSeconds());
+        } else {
+          // Default to end of day
+          updated.setHours(23, 59, 59, 999);
+        }
+        return updated;
+      });
+      setShowTimePicker(true);
+    }
+  };
+
+  const handleTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowTimePicker(false);
+    if (selectedDate && dueDate) {
+      const updated = new Date(dueDate);
+      updated.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+      setDueDate(updated);
+    }
+  };
+
+  const handleClearDeadline = () => {
+    setDueDate(null);
+  };
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -89,6 +126,7 @@ export default function CreateQuizScreen() {
         description: description.trim() || null,
         mode,
         time_limit_seconds: timeLimitSeconds,
+        due_at: dueDate ? dueDate.toISOString() : null,
         status: "draft",
       })
       .select()
@@ -207,6 +245,100 @@ export default function CreateQuizScreen() {
             onChangeText={setTimeLimitMinutes}
             keyboardType="numeric"
           />
+        </View>
+
+        {/* Deadline (optional) */}
+        <View style={{ marginBottom: spacing.lg }}>
+          <ThemedText
+            variant="caption"
+            style={{ fontWeight: "600", marginBottom: spacing.sm }}
+          >
+            Deadline (optional)
+          </ThemedText>
+          {dueDate ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.sm,
+              }}
+            >
+              <Pressable
+                onPress={() => setShowDatePicker(true)}
+                style={({ pressed }: { pressed: boolean }) => ({
+                  flex: 1,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radii.lg,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <ThemedText variant="body">
+                  {dueDate.toLocaleDateString(undefined, {
+                    weekday: "short",
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}{" "}
+                  {dueDate.toLocaleTimeString(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={handleClearDeadline}
+                style={({ pressed }: { pressed: boolean }) => ({
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: colors.surfaceMuted,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <X size={20} color={colors.textMuted} />
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => setShowDatePicker(true)}
+              style={({ pressed }: { pressed: boolean }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.sm,
+                backgroundColor: colors.surfaceMuted,
+                borderRadius: radii.lg,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Calendar size={20} color={colors.textMuted} />
+              <ThemedText muted>
+                Set deadline date and time...
+              </ThemedText>
+            </Pressable>
+          )}
+          {showDatePicker && (
+            <DateTimePicker
+              value={dueDate ?? new Date()}
+              mode="date"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              minimumDate={new Date()}
+              onChange={handleDateChange}
+            />
+          )}
+          {showTimePicker && dueDate && (
+            <DateTimePicker
+              value={dueDate}
+              mode="time"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              onChange={handleTimeChange}
+            />
+          )}
         </View>
 
         {/* Create button */}
