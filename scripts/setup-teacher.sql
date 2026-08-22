@@ -13,7 +13,9 @@ create table if not exists public.classes (
   section    text,
   class_code text not null unique,
   teacher_id uuid not null references public.profiles(id) on delete cascade,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  is_archived boolean not null default false,
+  archived_at timestamptz
 );
 
 -- 2. Class members table -------------------------------------------------------
@@ -115,6 +117,7 @@ returns table(
   class_code    text,
   teacher_id    uuid,
   created_at    timestamptz,
+  is_archived   boolean,
   teacher_name  text
 )
 language sql
@@ -129,10 +132,12 @@ as $$
     c.class_code,
     c.teacher_id,
     c.created_at,
+    c.is_archived,
     p.full_name as teacher_name
   from public.classes c
   left join public.profiles p on p.id = c.teacher_id
   where c.class_code = p_class_code
+    and c.is_archived = false
   limit 1;
 $$;
 

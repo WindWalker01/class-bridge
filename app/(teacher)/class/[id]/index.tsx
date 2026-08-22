@@ -25,14 +25,15 @@ import {
   ScreenHeader,
   SkeletonCard,
   ThemedText,
+  useToast,
 } from "@/components";
 import { radii, spacing, typography } from "@/constants/theme";
-import { useClass, useClassFeed } from "@/hooks/useClasses";
+import { useClass, useClassFeed, archiveClass } from "@/hooks/useClasses";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { Attachment, PostType, PostWithDetails } from "@/types";
-import { FileText, Paperclip } from "lucide-react-native";
+import { Archive, FileText, Paperclip } from "lucide-react-native";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -488,10 +489,36 @@ export default function ClassFeedScreen() {
   const { classData, loading: classLoading } = useClass(classId);
   const { posts, loading, refreshing, refresh, setPosts } =
     useClassFeed(classId);
+  const { show } = useToast();
 
   const handlePostCreated = useCallback(() => {
     void refresh();
   }, [refresh]);
+
+  const handleArchive = useCallback(() => {
+    Alert.alert(
+      "Archive class",
+      `Archive "${classData?.name ?? "this class"}"? Students will no longer be able to view or join it. You can restore it later.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Archive",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await archiveClass(classId);
+            if (error) {
+              show(error.message || "Failed to archive class.", {
+                type: "error",
+              });
+              return;
+            }
+            show("Class archived", { type: "success" });
+            router.back();
+          },
+        },
+      ],
+    );
+  }, [classId, classData?.name, show]);
 
   const renderPost = ({ item }: { item: PostWithDetails }) => (
     <PostCard post={item} />
@@ -527,7 +554,14 @@ export default function ClassFeedScreen() {
           }
           onBack={() => router.back()}
           rightAction={
-            <View style={{ flexDirection: "row", gap: spacing.xs }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
+              <IconButton
+                icon={Archive}
+                onPress={handleArchive}
+                color={colors.danger}
+                size={20}
+                accessibilityLabel="Archive class"
+              />
               <Pressable
                 onPress={() =>
                   router.push(`/(teacher)/class/${classId}/quizzes` as any)

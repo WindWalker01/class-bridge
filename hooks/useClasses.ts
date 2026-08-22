@@ -19,6 +19,28 @@ import type {
 } from "@/types";
 
 // ---------------------------------------------------------------------------
+// Archive helpers
+// ---------------------------------------------------------------------------
+
+/** Soft-archive a class so it disappears from active class lists and becomes
+ *  impossible to join by code. Scope to the class id; RLS restricts updates to
+ *  the owning teacher. */
+export async function archiveClass(classId: string) {
+  return supabase
+    .from("classes")
+    .update({ is_archived: true, archived_at: new Date().toISOString() })
+    .eq("id", classId);
+}
+
+/** Restore a previously archived class so it reappears for teacher/students. */
+export async function unarchiveClass(classId: string) {
+  return supabase
+    .from("classes")
+    .update({ is_archived: false, archived_at: null })
+    .eq("id", classId);
+}
+
+// ---------------------------------------------------------------------------
 // useTeacherClasses
 // ---------------------------------------------------------------------------
 
@@ -36,10 +58,59 @@ export function useTeacherClasses() {
       .from("classes")
       .select("*, class_members(count)")
       .eq("teacher_id", user.id)
+      .eq("is_archived", false)
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("[useTeacherClasses] fetch error:", error);
+      setClasses([]);
+    } else {
+      const mapped: ClassWithCount[] = (data ?? []).map((row: any) => ({
+        ...row,
+        student_count: row.class_members?.[0]?.count ?? 0,
+      }));
+      setClasses(mapped);
+    }
+
+    setLoading(false);
+  }, [user]);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchClasses();
+    setRefreshing(false);
+  }, [fetchClasses]);
+
+  useEffect(() => {
+    void fetchClasses();
+  }, [fetchClasses]);
+
+  return { classes, loading, refreshing, refresh };
+}
+
+// ---------------------------------------------------------------------------
+// useTeacherArchivedClasses
+// ---------------------------------------------------------------------------
+
+export function useTeacherArchivedClasses() {
+  const user = useAuthStore((state) => state.user);
+  const [classes, setClasses] = useState<ClassWithCount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchClasses = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("classes")
+      .select("*, class_members(count)")
+      .eq("teacher_id", user.id)
+      .eq("is_archived", true)
+      .order("archived_at", { ascending: false, nullsFirst: true });
+
+    if (error) {
+      console.error("[useTeacherArchivedClasses] fetch error:", error);
       setClasses([]);
     } else {
       const mapped: ClassWithCount[] = (data ?? []).map((row: any) => ({
@@ -318,6 +389,7 @@ export function useStudentClasses() {
       .from("classes")
       .select("*, teacher:profiles!classes_teacher_id_fkey(full_name)")
       .in("id", classIds)
+      .eq("is_archived", false)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -444,11 +516,12 @@ export function useTeacherAllQuizzes() {
     if (!user) return;
     setLoading(true);
 
-    // Get all class IDs for this teacher
+    // Get all class IDs for this teacher (excluding archived classes)
     const { data: classData } = await supabase
       .from("classes")
       .select("id")
-      .eq("teacher_id", user.id);
+      .eq("teacher_id", user.id)
+      .eq("is_archived", false);
 
     const classIds = (classData ?? []).map((c: any) => c.id);
     if (classIds.length === 0) {
@@ -517,11 +590,25 @@ export function useStudentAllQuizzes() {
       return;
     }
 
+    // Only consider classes that haven't been archived by the teacher
+    const { data: activeClassData } = await supabase
+      .from("classes")
+      .select("id")
+      .in("id", classIds)
+      .eq("is_archived", false);
+
+    const activeClassIds = (activeClassData ?? []).map((c: any) => c.id);
+    if (activeClassIds.length === 0) {
+      setQuizzes([]);
+      setLoading(false);
+      return;
+    }
+
     // 2. Fetch published quizzes in those classes, with class name
     const { data: quizData, error: quizError } = await supabase
       .from("quizzes")
       .select("*, class:classes!quizzes_class_id_fkey(name)")
-      .in("class_id", classIds)
+      .in("class_id", activeClassIds)
       .eq("status", "published")
       .order("updated_at", { ascending: false });
 

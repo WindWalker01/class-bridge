@@ -33,6 +33,7 @@ export default function TeacherLayout() {
           animation: "slide_from_bottom",
         }}
       />
+      <Stack.Screen name="archived-classes" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="class/[id]/index" />
       <Stack.Screen name="class/[id]/quizzes" />

@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useFocusEffect } from "expo-router";
-import { Plus } from "lucide-react-native";
+import { Archive, Plus } from "lucide-react-native";
 import { useCallback } from "react";
 import {
   FlatList,
@@ -119,16 +119,35 @@ export default function TeacherHomeScreen() {
               {classes.length} {classes.length === 1 ? "class" : "classes"}
             </ThemedText>
           </View>
-          <Pressable
-            onPress={() => router.push(Routes.teacherSettings)}
-            accessibilityLabel="Open settings"
-          >
-            <Avatar
-              uri={profile?.avatar_url}
-              name={profile?.full_name ?? "User"}
-              size={32}
-            />
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+            <Pressable
+              onPress={() => router.push(Routes.teacherArchivedClasses)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.xs,
+                backgroundColor: colors.surfaceMuted,
+                borderRadius: radii.pill,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+              }}
+            >
+              <Archive size={16} color={colors.textMuted} strokeWidth={2} />
+              <ThemedText variant="small" style={{ color: colors.textMuted }}>
+                Archived
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push(Routes.teacherSettings)}
+              accessibilityLabel="Open settings"
+            >
+              <Avatar
+                uri={profile?.avatar_url}
+                name={profile?.full_name ?? "User"}
+                size={32}
+              />
+            </Pressable>
+          </View>
         </View>
 
         {/* Class list */}

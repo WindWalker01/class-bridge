@@ -24,6 +24,7 @@ export const Routes = {
 
   // Teacher screens
   createClass: "/(teacher)/create-class" as Href,
+  teacherArchivedClasses: "/(teacher)/archived-classes" as Href,
   classFeed: (id: string) => `/(teacher)/class/${id}` as Href,
   classQuizzes: (id: string) => `/(teacher)/class/${id}/quizzes` as Href,
   classGradebook: (id: string) => `/(teacher)/class/${id}/gradebook` as Href,

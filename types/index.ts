@@ -57,6 +57,8 @@ export type Class = {
   class_code: string;
   teacher_id: string;
   created_at: string;
+  is_archived: boolean;
+  archived_at: string | null;
 };
 
 /** A class row joined with its student count. */
@@ -297,6 +299,7 @@ export type RootStackParamList = {
   "(auth)/profile-setup": undefined;
   "(teacher)": undefined;
   "(teacher)/create-class": undefined;
+  "(teacher)/archived-classes": undefined;
   "(teacher)/settings": undefined;
   "(teacher)/class/[id]": { id: string };
   "(teacher)/class/[id]/quizzes": { id: string };

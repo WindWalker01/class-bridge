@@ -97,4 +97,6 @@ declare module "lucide-react-native" {
   export const Presentation: LucideIcon;
   export const Lock: LucideIcon;
   export const KeyRound: LucideIcon;
+  export const Archive: LucideIcon;
+  export const ArchiveRestore: LucideIcon;
 }
