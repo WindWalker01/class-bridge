@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -28,8 +29,10 @@ import {
   useToast,
 } from "@/components";
 import { radii, spacing, typography } from "@/constants/theme";
+import { useAttachmentUrl } from "@/hooks/useAttachmentUrl";
 import { useClass, useClassFeed, archiveClass } from "@/hooks/useClasses";
 import { useTheme } from "@/hooks/useTheme";
+import { openAttachment } from "@/lib/attachments";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { Attachment, PostType, PostWithDetails } from "@/types";
@@ -77,34 +80,67 @@ const POST_TYPE_COLORS: Record<PostType, string> = {
 
 function AttachmentThumbnail({ attachment }: { attachment: Attachment }) {
   const { colors } = useTheme();
-  if (isImageType(attachment.file_type)) {
+  const { show } = useToast();
+  const [opening, setOpening] = useState(false);
+  const isImage = isImageType(attachment.file_type);
+  // Private bucket: resolve a short-lived signed URL for rendering.
+  const { url: imageUrl } = useAttachmentUrl(isImage ? attachment : null);
+
+  /** Download via signed URL and open the system share/viewer sheet. */
+  const handleOpen = useCallback(async () => {
+    if (opening) return;
+    setOpening(true);
+    try {
+      await openAttachment(attachment);
+    } catch (err) {
+      console.error("[attachments] Failed to open:", err);
+      show("Could not open attachment", { type: "error" });
+    } finally {
+      setOpening(false);
+    }
+  }, [attachment, opening, show]);
+
+  if (isImage) {
     return (
       <Pressable
-        onPress={() => {
-          // In a real app, open full-screen viewer
-          Alert.alert(attachment.file_name, attachment.file_url);
-        }}
+        onPress={handleOpen}
+        disabled={opening}
+        accessibilityLabel={`View ${attachment.file_name}`}
         style={{
           borderRadius: radii.sm,
           overflow: "hidden",
           borderWidth: 1,
           borderColor: colors.border,
+          backgroundColor: colors.surfaceMuted,
         }}
       >
-        <Image
-          source={{ uri: attachment.file_url }}
-          style={{ width: 120, height: 90 }}
-          resizeMode="cover"
-        />
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={{ width: 120, height: 90 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View
+            style={{
+              width: 120,
+              height: 90,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <ActivityIndicator size="small" color={colors.textMuted} />
+          </View>
+        )}
       </Pressable>
     );
   }
 
   return (
     <Pressable
-      onPress={() => {
-        Alert.alert(attachment.file_name, attachment.file_url);
-      }}
+      onPress={handleOpen}
+      disabled={opening}
+      accessibilityLabel={`Download ${attachment.file_name}`}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -115,9 +151,14 @@ function AttachmentThumbnail({ attachment }: { attachment: Attachment }) {
         paddingVertical: spacing.sm,
         borderWidth: 1,
         borderColor: colors.border,
+        opacity: opening ? 0.6 : 1,
       }}
     >
-      <IconButton icon={Paperclip} size={18} color={colors.textMuted} />
+      {opening ? (
+        <ActivityIndicator size="small" color={colors.textMuted} />
+      ) : (
+        <IconButton icon={Paperclip} size={18} color={colors.textMuted} />
+      )}
       <ThemedText variant="small" numberOfLines={1} style={{ flex: 1 }}>
         {attachment.file_name}
       </ThemedText>
