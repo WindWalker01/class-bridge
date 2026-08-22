@@ -504,8 +504,8 @@ returns table(
 ) as $$
 begin
   return query
-  select * from public.final_grades(p_class_id)
-  where student_id = p_student_id;
+  select * from public.final_grades(p_class_id) fg
+  where fg.student_id = p_student_id;
 end;
 $$ language plpgsql stable security definer;
 

@@ -269,23 +269,7 @@ export function useQuizTaking(quizId: string) {
     if (!attempt || attempt.status !== "in_progress") return;
     setSubmitting(true);
 
-    // Mark attempt as submitted
-    const { error: submitError } = await supabase
-      .from("quiz_attempts")
-      .update({
-        status: "submitted",
-        submitted_at: new Date().toISOString(),
-      })
-      .eq("id", attempt.id);
-
-    if (submitError) {
-      console.error("[useQuizTaking] submit error:", submitError);
-      setError("Failed to submit quiz");
-      setSubmitting(false);
-      return;
-    }
-
-    // Call the auto-grading RPC
+    // Call the auto-grading RPC (it handles setting status to 'graded' and submitted_at)
     const { data: gradedAttempt, error: gradeError } = await supabase.rpc(
       "grade_attempt",
       { p_attempt_id: attempt.id },
