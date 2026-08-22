@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -27,8 +27,9 @@ import { radii, spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useClass, useClassQuizzes } from "@/hooks/useClasses";
+import { useGradeCategories } from "@/hooks/useGradeEngine";
 import { supabase } from "@/lib/supabase";
-import type { Quiz, QuizStatus } from "@/types";
+import type { GradeCategory, Quiz, QuizStatus } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -135,7 +136,7 @@ function CreateQuizForm({
 // Quiz Card
 // ---------------------------------------------------------------------------
 
-function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
+function QuizCard({ quiz, classId, categoryName }: { quiz: Quiz; classId: string; categoryName?: string }) {
   const tone = STATUS_TO_TONE[quiz.status];
   const { colors } = useTheme();
 
@@ -171,11 +172,30 @@ function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
           flexDirection: "row",
           alignItems: "center",
           gap: spacing.sm,
+          flexWrap: "wrap",
         }}
       >
         <ThemedText variant="small" muted>
           Created {formatDate(quiz.created_at)}
         </ThemedText>
+        {categoryName && (
+          <View
+            style={{
+              backgroundColor: colors.surfaceMuted,
+              borderRadius: 4,
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+            }}
+          >
+            <ThemedText
+              variant="small"
+              muted
+              style={{ fontSize: 11, lineHeight: 14 }}
+            >
+              {categoryName}
+            </ThemedText>
+          </View>
+        )}
         {quiz.due_at && (
           <ThemedText
             variant="small"
@@ -204,7 +224,15 @@ export default function QuizzesScreen() {
   const { isTablet } = useResponsive();
   const { classData } = useClass(classId);
   const { quizzes, loading, refreshing, refresh } = useClassQuizzes(classId);
+  const { categories } = useGradeCategories(classId);
   const [showCreateForm, setShowCreateForm] = useState(false);
+
+  // Build a lookup map: categoryId -> categoryName
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((c) => map.set(c.id, c.name));
+    return map;
+  }, [categories]);
 
   const handleQuizCreated = () => {
     setShowCreateForm(false);
@@ -212,7 +240,11 @@ export default function QuizzesScreen() {
   };
 
   const renderQuiz = ({ item }: { item: Quiz }) => (
-    <QuizCard quiz={item} classId={classId} />
+    <QuizCard
+      quiz={item}
+      classId={classId}
+      categoryName={item.category_id ? categoryMap.get(item.category_id) : undefined}
+    />
   );
 
   const renderEmpty = () => {

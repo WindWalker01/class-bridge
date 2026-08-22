@@ -2,7 +2,7 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Platform,
@@ -10,7 +10,7 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { AlertCircle, Calendar, X } from "lucide-react-native";
+import { AlertCircle, Calendar, ChevronDown, X } from "lucide-react-native";
 
 import {
   AnimatedListItem,
@@ -28,8 +28,15 @@ import {
 import DraggableQuestionList from "@/components/DraggableQuestionList";
 import GamifiedTiersEditor from "@/components/GamifiedTiersEditor";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import { useGradeCategories } from "@/hooks/useGradeEngine";
 import { useQuizBuilder } from "@/hooks/useQuizBuilder";
-import type { MCQOption, Question, QuestionType, SpeedBonusTier } from "@/types";
+import type {
+  GradeCategory,
+  MCQOption,
+  Question,
+  QuestionType,
+  SpeedBonusTier,
+} from "@/types";
 import { DEFAULT_SPEED_BONUS_TIERS } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -619,6 +626,18 @@ export default function EditQuizScreen() {
   } = useQuizBuilder(quizId ?? "");
   const toast = useToast();
 
+  // Grade categories for this class
+  const { categories, loading: catLoading } = useGradeCategories(classId);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+
+  // Sync categoryId from quiz data once loaded
+  useEffect(() => {
+    if (quiz && categoryId === null && quiz.category_id) {
+      setCategoryId(quiz.category_id);
+    }
+  }, [quiz?.category_id]);
+
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [editTitle, setEditTitle] = useState(false);
@@ -659,7 +678,19 @@ export default function EditQuizScreen() {
 
   const handleTogglePublish = async () => {
     const wasPublished = quiz?.status === "published";
-    await togglePublish();
+    const isPublishing = !wasPublished;
+
+    // Require a grade category when publishing
+    if (isPublishing && !categoryId) {
+      toast.show(
+        "Please select a Grade Category before publishing. Set up categories in Grade Weights first.",
+        { type: "error" },
+      );
+      return;
+    }
+
+    // Pass the selected categoryId so togglePublish uses the freshest value
+    await togglePublish(isPublishing ? categoryId : undefined);
     toast.show(wasPublished ? "Quiz unpublished!" : "Quiz published!");
   };
 
@@ -909,6 +940,125 @@ export default function EditQuizScreen() {
                 <ThemedText variant="small" muted>
                   {Math.floor(quiz.time_limit_seconds / 60)} min
                 </ThemedText>
+              </View>
+            )}
+          </View>
+
+          {/* Grade Category picker */}
+          <View style={{ marginTop: spacing.md }}>
+            <ThemedText
+              variant="caption"
+              style={{ fontWeight: "600", marginBottom: spacing.xs }}
+            >
+              Grade Category
+            </ThemedText>
+            {catLoading ? (
+              <ThemedText variant="small" muted>
+                Loading categories...
+              </ThemedText>
+            ) : categories.length === 0 ? (
+              <View
+                style={{
+                  backgroundColor: colors.warning + "18",
+                  borderRadius: radii.md,
+                  padding: spacing.sm,
+                }}
+              >
+                <ThemedText variant="small" style={{ color: colors.warning }}>
+                  No grade categories set up yet. Go to Grade Weights to create
+                  them.
+                </ThemedText>
+              </View>
+            ) : (
+              <View>
+                <Pressable
+                  onPress={() => setShowCategoryPicker(!showCategoryPicker)}
+                  style={({
+                    pressed,
+                  }: {
+                    pressed: boolean;
+                  }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    backgroundColor: colors.surfaceMuted,
+                    borderRadius: radii.md,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm,
+                    opacity: pressed ? 0.8 : 1,
+                  })}
+                >
+                  <ThemedText
+                    variant="body"
+                    style={{
+                      color: categoryId ? colors.text : colors.textSubtle,
+                    }}
+                  >
+                    {categoryId
+                      ? categories.find((c) => c.id === categoryId)?.name ??
+                        "Select category..."
+                      : "Select category..."}
+                  </ThemedText>
+                  <ChevronDown size={18} color={colors.textMuted} />
+                </Pressable>
+
+                {showCategoryPicker && (
+                  <View
+                    style={{
+                      marginTop: spacing.xs,
+                      backgroundColor: colors.surface,
+                      borderRadius: radii.md,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {categories.map((cat) => {
+                      const selected = cat.id === categoryId;
+                      return (
+                        <Pressable
+                          key={cat.id}
+                          onPress={() => {
+                            setCategoryId(cat.id);
+                            setShowCategoryPicker(false);
+                            // Persist immediately if quiz exists
+                            if (quiz) {
+                              void updateQuiz({ category_id: cat.id });
+                            }
+                          }}
+                          style={({
+                            pressed,
+                          }: {
+                            pressed: boolean;
+                          }) => ({
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            paddingHorizontal: spacing.md,
+                            paddingVertical: spacing.sm,
+                            backgroundColor: selected
+                              ? accent.accentSoft
+                              : pressed
+                                ? colors.surfaceMuted
+                                : "transparent",
+                          })}
+                        >
+                          <ThemedText
+                            variant="body"
+                            style={{
+                              fontWeight: selected ? "600" : "400",
+                            }}
+                          >
+                            {cat.name}
+                          </ThemedText>
+                          <ThemedText variant="small" muted>
+                            {cat.weight}%
+                          </ThemedText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             )}
           </View>

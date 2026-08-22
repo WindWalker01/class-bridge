@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
-import type { MCQOption, Question, QuestionType, Quiz } from "@/types";
+import type { GradeCategory, MCQOption, Question, QuestionType, Quiz } from "@/types";
 
 // ---------------------------------------------------------------------------
 // useQuizBuilder
@@ -57,6 +57,11 @@ export function useQuizBuilder(quizId: string) {
   const updateQuiz = async (updates: Partial<Quiz>) => {
     if (!quizId) return;
     setSaving(true);
+
+    // Keep track of what's changing for post-update sync
+    const isCategoryChange = "category_id" in updates;
+    const isTitleChange = "title" in updates;
+
     const { error } = await supabase
       .from("quizzes")
       .update(updates)
@@ -66,13 +71,131 @@ export function useQuizBuilder(quizId: string) {
     } else {
       setQuiz((prev) => (prev ? { ...prev, ...updates } : prev));
     }
+
+    // If quiz is published and category/title changed, sync the graded_item
+    const currentStatus = quiz?.status;
+    if (!error && currentStatus === "published") {
+      const giUpdates: Record<string, any> = {};
+      if (isCategoryChange) {
+        giUpdates.category_id = updates.category_id;
+      }
+      if (isTitleChange) {
+        giUpdates.title = updates.title;
+      }
+      if (Object.keys(giUpdates).length > 0) {
+        const { error: giError } = await supabase
+          .from("graded_items")
+          .update(giUpdates)
+          .eq("source_type", "quiz")
+          .eq("source_id", quizId);
+        if (giError) {
+          console.error(
+            "[useQuizBuilder] graded_item sync error:",
+            giError,
+          );
+        }
+      }
+    }
+
     setSaving(false);
   };
 
-  const togglePublish = async () => {
+  const togglePublish = async (overrideCategoryId?: string | null) => {
     if (!quiz) return;
-    const newStatus = quiz.status === "published" ? "draft" : "published";
-    await updateQuiz({ status: newStatus });
+    const isPublishing = quiz.status !== "published";
+    setSaving(true);
+
+    // Use the override if provided, otherwise fall back to current quiz state
+    const effectiveCategoryId =
+      overrideCategoryId !== undefined ? overrideCategoryId : quiz.category_id;
+
+    if (isPublishing) {
+      // --- Publishing: upsert graded_item --------------------------------
+      const totalPoints =
+        questions.length > 0
+          ? questions.reduce((sum, q) => sum + (q.points ?? 1), 0)
+          : 100;
+
+      // 1. Set status to published + ensure category_id is saved
+      const { error: pubError } = await supabase
+        .from("quizzes")
+        .update({ status: "published", category_id: effectiveCategoryId })
+        .eq("id", quizId);
+
+      if (pubError) {
+        console.error("[useQuizBuilder] publish error:", pubError);
+        setSaving(false);
+        return;
+      }
+
+      // 2. Upsert graded_item for this quiz
+      const { error: giError } = await supabase
+        .from("graded_items")
+        .upsert(
+          {
+            class_id: quiz.class_id,
+            category_id: effectiveCategoryId,
+            source_type: "quiz",
+            source_id: quizId,
+            title: quiz.title,
+            max_score: totalPoints,
+          },
+          {
+            onConflict: "source_type, source_id",
+            ignoreDuplicates: false,
+          },
+        )
+        .select()
+        .maybeSingle();
+
+      if (giError) {
+        console.error(
+          "[useQuizBuilder] graded_item upsert error:",
+          giError,
+        );
+      }
+
+      setQuiz((prev) =>
+        prev ? { ...prev, status: "published", category_id: effectiveCategoryId } : prev,
+      );
+    } else {
+      // --- Unpublishing: remove graded_item + grades ---------------------
+      // 1. Get the graded_item id
+      const { data: gi } = await supabase
+        .from("graded_items")
+        .select("id")
+        .eq("source_type", "quiz")
+        .eq("source_id", quizId)
+        .maybeSingle();
+
+      if (gi) {
+        // Delete grades first (FK), then graded_item
+        await supabase.from("grades").delete().eq("graded_item_id", gi.id);
+        await supabase
+          .from("graded_items")
+          .delete()
+          .eq("id", gi.id);
+      }
+
+      // 2. Set status back to draft
+      const { error: draftError } = await supabase
+        .from("quizzes")
+        .update({ status: "draft" })
+        .eq("id", quizId);
+
+      if (draftError) {
+        console.error(
+          "[useQuizBuilder] unpublish error:",
+          draftError,
+        );
+      }
+
+      setQuiz((prev) =>
+        prev ? { ...prev, status: "draft" } : prev,
+      );
+    }
+
+    setSaving(false);
   };
 
   // ---------------------------------------------------------------------------

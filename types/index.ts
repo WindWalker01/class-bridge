@@ -106,6 +106,7 @@ export type Quiz = {
   time_limit_seconds: number | null;
   due_at: string | null;
   status: QuizStatus;
+  category_id: string | null;
   speed_bonus_tiers: SpeedBonusTier[] | null;
   created_at: string;
   updated_at: string;

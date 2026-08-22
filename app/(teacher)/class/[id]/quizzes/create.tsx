@@ -14,12 +14,13 @@ import {
   ThemedText,
   useToast,
 } from "@/components";
-import { BookOpen, Calendar, Timer, X, Zap } from "lucide-react-native";
+import { BookOpen, Calendar, ChevronDown, Timer, X, Zap } from "lucide-react-native";
 import { modeColor, radii, spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useResponsive } from "@/hooks/useResponsive";
+import { useGradeCategories } from "@/hooks/useGradeEngine";
 import { supabase } from "@/lib/supabase";
-import type { QuizMode, SpeedBonusTier } from "@/types";
+import type { GradeCategory, QuizMode, SpeedBonusTier } from "@/types";
 import { DEFAULT_SPEED_BONUS_TIERS } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,11 @@ export default function CreateQuizScreen() {
   const [speedBonusTiers, setSpeedBonusTiers] = useState<SpeedBonusTier[]>(
     DEFAULT_SPEED_BONUS_TIERS,
   );
+
+  // Grade categories
+  const { categories, loading: catLoading } = useGradeCategories(classId);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 
   const updateTier = (index: number, field: keyof SpeedBonusTier, value: string) => {
     setSpeedBonusTiers((prev) => {
@@ -154,6 +160,7 @@ export default function CreateQuizScreen() {
         time_limit_seconds: timeLimitSeconds,
         due_at: dueDate ? dueDate.toISOString() : null,
         status: "draft",
+        category_id: categoryId,
         speed_bonus_tiers:
           mode === "gamified" ? speedBonusTiers : null,
       })
@@ -354,6 +361,111 @@ export default function CreateQuizScreen() {
             onChangeText={setTimeLimitMinutes}
             keyboardType="numeric"
           />
+        </View>
+
+        {/* Grade Category (optional) */}
+        <View style={{ marginBottom: spacing.lg }}>
+          <ThemedText
+            variant="caption"
+            style={{ fontWeight: "600", marginBottom: spacing.sm }}
+          >
+            Grade Category
+          </ThemedText>
+          {catLoading ? (
+            <ThemedText variant="small" muted>
+              Loading categories...
+            </ThemedText>
+          ) : categories.length === 0 ? (
+            <View
+              style={{
+                backgroundColor: colors.warning + "18",
+                borderRadius: radii.md,
+                padding: spacing.sm,
+              }}
+            >
+              <ThemedText variant="small" style={{ color: colors.warning }}>
+                No grade categories yet. You can assign one later in the quiz
+                editor.
+              </ThemedText>
+            </View>
+          ) : (
+            <View>
+              <Pressable
+                onPress={() => setShowCategoryPicker(!showCategoryPicker)}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radii.md,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  opacity: pressed ? 0.8 : 1,
+                })}
+              >
+                <ThemedText
+                  variant="body"
+                  style={{
+                    color: categoryId ? colors.text : colors.textSubtle,
+                  }}
+                >
+                  {categoryId
+                    ? categories.find((c) => c.id === categoryId)?.name ??
+                      "Select category..."
+                    : "Select category (optional)"}
+                </ThemedText>
+                <ChevronDown size={18} color={colors.textMuted} />
+              </Pressable>
+
+              {showCategoryPicker && (
+                <View
+                  style={{
+                    marginTop: spacing.xs,
+                    backgroundColor: colors.surface,
+                    borderRadius: radii.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    overflow: "hidden",
+                  }}
+                >
+                  {categories.map((cat) => {
+                    const selected = cat.id === categoryId;
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        onPress={() => {
+                          setCategoryId(cat.id);
+                          setShowCategoryPicker(false);
+                        }}
+                        style={({ pressed }) => ({
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          paddingHorizontal: spacing.md,
+                          paddingVertical: spacing.sm,
+                          backgroundColor: selected
+                            ? colors.surfaceMuted
+                            : pressed
+                              ? colors.surfaceMuted
+                              : "transparent",
+                        })}
+                      >
+                        <ThemedText
+                          variant="body"
+                          style={{ fontWeight: selected ? "600" : "400" }}
+                        >
+                          {cat.name}
+                        </ThemedText>
+                        <ThemedText variant="small" muted>
+                          {cat.weight}%
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Deadline (optional) */}
