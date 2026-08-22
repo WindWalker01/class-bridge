@@ -32,6 +32,22 @@ export type QuizStatus = "draft" | "published" | "closed";
 export type QuizMode = "standard" | "timed" | "gamified";
 export type QuestionType = "mcq" | "true_false" | "short_answer";
 
+/** A configurable speed bonus tier for gamified quizzes.
+ *  When a student answers within `maxTimeSeconds`, their points are
+ *  multiplied by `multiplier`. Tiers are checked in order — the
+ *  first matching tier (lowest maxTimeSeconds) that applies wins. */
+export type SpeedBonusTier = {
+  maxTimeSeconds: number;
+  multiplier: number;
+};
+
+/** Sensible defaults matching the original hardcoded thresholds. */
+export const DEFAULT_SPEED_BONUS_TIERS: SpeedBonusTier[] = [
+  { maxTimeSeconds: 5, multiplier: 2.0 },
+  { maxTimeSeconds: 15, multiplier: 1.5 },
+  { maxTimeSeconds: 30, multiplier: 1.25 },
+];
+
 /** A class (course) created by a teacher. */
 export type Class = {
   id: string;
@@ -90,6 +106,7 @@ export type Quiz = {
   time_limit_seconds: number | null;
   due_at: string | null;
   status: QuizStatus;
+  speed_bonus_tiers: SpeedBonusTier[] | null;
   created_at: string;
   updated_at: string;
 };

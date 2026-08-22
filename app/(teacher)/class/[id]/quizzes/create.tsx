@@ -19,7 +19,8 @@ import { modeColor, radii, spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { supabase } from "@/lib/supabase";
-import type { QuizMode } from "@/types";
+import type { QuizMode, SpeedBonusTier } from "@/types";
+import { DEFAULT_SPEED_BONUS_TIERS } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -74,6 +75,31 @@ export default function CreateQuizScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [speedBonusTiers, setSpeedBonusTiers] = useState<SpeedBonusTier[]>(
+    DEFAULT_SPEED_BONUS_TIERS,
+  );
+
+  const updateTier = (index: number, field: keyof SpeedBonusTier, value: string) => {
+    setSpeedBonusTiers((prev) => {
+      const updated = [...prev];
+      const num = parseFloat(value);
+      if (!isNaN(num)) {
+        updated[index] = { ...updated[index], [field]: field === "maxTimeSeconds" ? Math.round(num) : num };
+      }
+      return updated;
+    });
+  };
+
+  const addTier = () => {
+    setSpeedBonusTiers((prev) => [
+      ...prev,
+      { maxTimeSeconds: (prev[prev.length - 1]?.maxTimeSeconds ?? 30) + 15, multiplier: 1.0 },
+    ]);
+  };
+
+  const removeTier = (index: number) => {
+    setSpeedBonusTiers((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
     setShowDatePicker(false);
@@ -128,6 +154,8 @@ export default function CreateQuizScreen() {
         time_limit_seconds: timeLimitSeconds,
         due_at: dueDate ? dueDate.toISOString() : null,
         status: "draft",
+        speed_bonus_tiers:
+          mode === "gamified" ? speedBonusTiers : null,
       })
       .select()
       .single();
@@ -235,6 +263,87 @@ export default function CreateQuizScreen() {
             );
           })}
         </View>
+
+        {/* Speed Bonus Tiers (gamified only) */}
+        {mode === "gamified" && (
+          <View style={{ marginBottom: spacing.lg }}>
+            <ThemedText
+              variant="caption"
+              style={{ fontWeight: "600", marginBottom: spacing.sm }}
+            >
+              Speed Bonus Tiers
+            </ThemedText>
+            <ThemedText variant="small" muted style={{ marginBottom: spacing.md }}>
+              When a student answers within the time threshold, their points
+              are multiplied. Tiers are checked from top to bottom — the first
+              match wins.
+            </ThemedText>
+            {speedBonusTiers.map((tier, index) => (
+              <Card
+                key={index}
+                variant="flat"
+                style={{ marginBottom: spacing.sm }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing.sm,
+                  }}
+                >
+                  <ThemedText
+                    variant="small"
+                    style={{ fontWeight: "600", minWidth: 60 }}
+                  >
+                    Tier {index + 1}
+                  </ThemedText>
+                  <View style={{ flex: 1, flexDirection: "row", gap: spacing.xs, alignItems: "center" }}>
+                    <ThemedText variant="small" muted>
+                      Time &lt;
+                    </ThemedText>
+                    <TextField
+                      placeholder="sec"
+                      value={String(tier.maxTimeSeconds)}
+                      onChangeText={(v) => updateTier(index, "maxTimeSeconds", v)}
+                      keyboardType="numeric"
+                      style={{ flex: 1, minWidth: 50 }}
+                    />
+                    <ThemedText variant="small" muted>
+                      sec → ×
+                    </ThemedText>
+                    <TextField
+                      placeholder="1.0"
+                      value={String(tier.multiplier)}
+                      onChangeText={(v) => updateTier(index, "multiplier", v)}
+                      keyboardType="decimal-pad"
+                      style={{ flex: 1, minWidth: 50 }}
+                    />
+                  </View>
+                  {speedBonusTiers.length > 1 && (
+                    <Pressable
+                      onPress={() => removeTier(index)}
+                      style={({ pressed }) => ({
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: pressed ? "#fecaca" : colors.surfaceMuted,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      })}
+                    >
+                      <X size={16} color={colors.danger} />
+                    </Pressable>
+                  )}
+                </View>
+              </Card>
+            ))}
+            <Button
+              label="+ Add Tier"
+              variant="ghost"
+              onPress={addTier}
+            />
+          </View>
+        )}
 
         {/* Overall time limit */}
         <View style={{ marginBottom: spacing.lg }}>

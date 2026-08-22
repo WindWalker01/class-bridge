@@ -26,9 +26,11 @@ import {
   useToast,
 } from "@/components";
 import DraggableQuestionList from "@/components/DraggableQuestionList";
+import GamifiedTiersEditor from "@/components/GamifiedTiersEditor";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
 import { useQuizBuilder } from "@/hooks/useQuizBuilder";
-import type { MCQOption, Question, QuestionType } from "@/types";
+import type { MCQOption, Question, QuestionType, SpeedBonusTier } from "@/types";
+import { DEFAULT_SPEED_BONUS_TIERS } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -56,6 +58,7 @@ function QuestionForm({
   initial,
   onSave,
   onCancel,
+  quizMode,
 }: {
   initial?: Question;
   onSave: (data: {
@@ -67,6 +70,7 @@ function QuestionForm({
     time_limit_seconds: number | null;
   }) => void;
   onCancel: () => void;
+  quizMode: string;
 }) {
   const [type, setType] = useState<QuestionType>(initial?.type ?? "mcq");
   const [prompt, setPrompt] = useState(initial?.prompt ?? "");
@@ -110,6 +114,13 @@ function QuestionForm({
     if (!prompt.trim()) {
       setError("Prompt is required");
       return;
+    }
+
+    if (quizMode === "timed") {
+      if (!timeLimit.trim() || parseInt(timeLimit, 10) <= 0) {
+        setError("Time limit is required for Timed mode questions");
+        return;
+      }
     }
 
     let correct_answer: string | boolean | { key: string };
@@ -375,15 +386,23 @@ function QuestionForm({
             keyboardType="numeric"
           />
         </View>
-        <View style={{ flex: 1 }}>
-          <TextField
-            label="Time Limit (sec, optional)"
-            placeholder="No limit"
-            value={timeLimit}
-            onChangeText={setTimeLimit}
-            keyboardType="numeric"
-          />
-        </View>
+        {quizMode !== "standard" && (
+          <View style={{ flex: 1 }}>
+            <TextField
+              label={
+                quizMode === "timed"
+                  ? "Time Limit (sec) *"
+                  : "Time Limit (sec)"
+              }
+              placeholder={
+                quizMode === "timed" ? "Required" : "Optional"
+              }
+              value={timeLimit}
+              onChangeText={setTimeLimit}
+              keyboardType="numeric"
+            />
+          </View>
+        )}
       </View>
 
       {/* Actions */}
@@ -894,6 +913,21 @@ export default function EditQuizScreen() {
             )}
           </View>
 
+          {/* Speed Bonus Tiers (gamified only) */}
+          {quiz.mode === "gamified" && (
+            <GamifiedTiersEditor
+              initialTiers={
+                (quiz.speed_bonus_tiers as SpeedBonusTier[]) ??
+                DEFAULT_SPEED_BONUS_TIERS
+              }
+              onSave={async (tiers) => {
+                await updateQuiz({
+                  speed_bonus_tiers: tiers as unknown as any,
+                });
+              }}
+            />
+          )}
+
           {/* Deadline */}
           <View style={{ marginTop: spacing.md }}>
             <ThemedText
@@ -1022,6 +1056,7 @@ export default function EditQuizScreen() {
             <QuestionForm
               onSave={handleAddQuestion}
               onCancel={() => setShowQuestionForm(false)}
+              quizMode={quiz.mode}
             />
           )}
 
@@ -1031,6 +1066,7 @@ export default function EditQuizScreen() {
               initial={editingQuestion}
               onSave={handleUpdateQuestion}
               onCancel={() => setEditingQuestion(null)}
+              quizMode={quiz.mode}
             />
           )}
 

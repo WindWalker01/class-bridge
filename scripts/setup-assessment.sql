@@ -10,7 +10,8 @@ alter table public.quizzes
   add column if not exists mode text not null default 'standard'
     check (mode in ('standard', 'timed', 'gamified')),
   add column if not exists time_limit_seconds int,
-  add column if not exists due_at timestamptz;
+  add column if not exists due_at timestamptz,
+  add column if not exists speed_bonus_tiers jsonb;
 
 -- Update the status check constraint to include 'closed'
 alter table public.quizzes
@@ -362,17 +363,33 @@ begin
     if v_is_correct = true then
       v_points_awarded := v_answer.question_points;
 
-      -- Gamified mode: speed bonus
+      -- Gamified mode: speed bonus (uses configurable tiers from quiz)
       if v_attempt.mode = 'gamified' and v_time_taken_ms is not null then
-        if v_time_taken_ms < 5000 then
-          v_speed_multiplier := 2.0;
-        elsif v_time_taken_ms < 15000 then
-          v_speed_multiplier := 1.5;
-        elsif v_time_taken_ms < 30000 then
-          v_speed_multiplier := 1.25;
-        else
-          v_speed_multiplier := 1.0;
-        end if;
+        v_speed_multiplier := 1.0;
+        -- Read speed_bonus_tiers from the quiz row (fall back to defaults)
+        declare
+          v_tiers jsonb;
+          v_tier jsonb;
+        begin
+          select speed_bonus_tiers
+            into v_tiers
+            from public.quizzes
+            where id = v_attempt.quiz_id;
+
+          if v_tiers is null or jsonb_array_length(v_tiers) = 0 then
+            -- Default tiers matching original hardcoded values
+            v_tiers := '[{"maxTimeSeconds": 5, "multiplier": 2.0}, {"maxTimeSeconds": 15, "multiplier": 1.5}, {"maxTimeSeconds": 30, "multiplier": 1.25}]'::jsonb;
+          end if;
+
+          -- Iterate tiers in order; first matching (lowest maxTimeSeconds) wins
+          for v_tier in select * from jsonb_array_elements(v_tiers)
+          loop
+            if v_time_taken_ms < ((v_tier->>'maxTimeSeconds')::int * 1000) then
+              v_speed_multiplier := (v_tier->>'multiplier')::numeric;
+              exit;
+            end if;
+          end loop;
+        end;
         v_points_awarded := round(v_answer.question_points * v_speed_multiplier, 2);
       end if;
     elsif v_is_correct = false then
