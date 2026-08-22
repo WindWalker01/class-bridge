@@ -249,6 +249,12 @@ export type QuizWithStudentStatus = Quiz & {
   maxScore: number | null;
 };
 
+/** A quiz joined with its class name (for aggregated views). */
+export type QuizWithClass = Quiz & { class_name: string };
+
+/** A quiz with student status AND class name (for aggregated student quiz tab). */
+export type QuizWithStudentStatusAndClass = QuizWithStudentStatus & { class_name: string };
+
 /** A grade item for the student's grades screen. */
 export type StudentGradeItem = {
   classId: string;

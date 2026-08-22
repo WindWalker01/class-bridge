@@ -28,6 +28,11 @@ export const Routes = {
   classQuizzes: (id: string) => `/(teacher)/class/${id}/quizzes` as Href,
   classGradebook: (id: string) => `/(teacher)/class/${id}/gradebook` as Href,
 
+  // Teacher tab screens
+  teacherTab: "/(teacher)/(tabs)" as Href,
+  teacherTabQuizzes: "/(teacher)/(tabs)/quizzes" as Href,
+  teacherTabGradebook: "/(teacher)/(tabs)/gradebook" as Href,
+
   // Settings screens
   teacherSettings: "/(teacher)/settings" as Href,
   studentSettings: "/(student)/settings" as Href,
@@ -36,7 +41,11 @@ export const Routes = {
   studentJoinClass: "/(student)/join-class" as Href,
   studentClassFeed: (id: string) => `/(student)/class/${id}` as Href,
   studentClassQuizzes: (id: string) => `/(student)/class/${id}/quizzes` as Href,
-  studentGrades: "/(student)/grades" as Href,
+
+  // Student tab screens
+  studentTab: "/(student)/(tabs)" as Href,
+  studentTabQuizzes: "/(student)/(tabs)/quizzes" as Href,
+  studentTabGrades: "/(student)/(tabs)/grades" as Href,
 
   // Root
   index: "/" as Href,

@@ -273,7 +273,7 @@ export default function StudentClassFeedScreen() {
                 </ThemedText>
               </Pressable>
               <Pressable
-                onPress={() => router.push(Routes.studentGrades as any)}
+                onPress={() => router.push(Routes.studentTabGrades)}
                 style={{
                   paddingHorizontal: spacing.sm,
                   paddingVertical: spacing.xs,

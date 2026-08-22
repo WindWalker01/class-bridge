@@ -25,7 +25,7 @@ export default function StudentLayout() {
         animationDuration: 300,
       }}
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen name="(tabs)" />
       <Stack.Screen name="settings" />
       <Stack.Screen
         name="join-class"
@@ -36,7 +36,6 @@ export default function StudentLayout() {
       />
       <Stack.Screen name="class/[id]/index" />
       <Stack.Screen name="class/[id]/quizzes" />
-      <Stack.Screen name="grades" />
     </Stack>
   );
 }

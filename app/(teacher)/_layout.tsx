@@ -25,7 +25,7 @@ export default function TeacherLayout() {
         animationDuration: 300,
       }}
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="create-class"
         options={{

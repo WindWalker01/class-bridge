@@ -11,7 +11,9 @@ import type {
   PostWithDetails,
   Quiz,
   QuizAttempt,
+  QuizWithClass,
   QuizWithStudentStatus,
+  QuizWithStudentStatusAndClass,
   StudentGradeItem,
   StudentQuizStatus,
 } from "@/types";
@@ -415,6 +417,156 @@ export function useStudentQuizStatuses(classId: string) {
     setQuizzes(withStatus);
     setLoading(false);
   }, [user, classId]);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchQuizzes();
+    setRefreshing(false);
+  }, [fetchQuizzes]);
+
+  useEffect(() => {
+    void fetchQuizzes();
+  }, [fetchQuizzes]);
+
+  return { quizzes, loading, refreshing, refresh };
+}
+// ---------------------------------------------------------------------------
+// useTeacherAllQuizzes — all quizzes across teacher's classes
+// ---------------------------------------------------------------------------
+
+export function useTeacherAllQuizzes() {
+  const user = useAuthStore((state) => state.user);
+  const [quizzes, setQuizzes] = useState<QuizWithClass[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchQuizzes = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+
+    // Get all class IDs for this teacher
+    const { data: classData } = await supabase
+      .from("classes")
+      .select("id")
+      .eq("teacher_id", user.id);
+
+    const classIds = (classData ?? []).map((c: any) => c.id);
+    if (classIds.length === 0) {
+      setQuizzes([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("quizzes")
+      .select("*, class:classes!quizzes_class_id_fkey(name)")
+      .in("class_id", classIds)
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      console.error("[useTeacherAllQuizzes] fetch error:", error);
+      setQuizzes([]);
+    } else {
+      const mapped: QuizWithClass[] = (data ?? []).map((row: any) => ({
+        ...row,
+        class_name: row.class?.name ?? "Unknown Class",
+      }));
+      setQuizzes(mapped);
+    }
+
+    setLoading(false);
+  }, [user]);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchQuizzes();
+    setRefreshing(false);
+  }, [fetchQuizzes]);
+
+  useEffect(() => {
+    void fetchQuizzes();
+  }, [fetchQuizzes]);
+
+  return { quizzes, loading, refreshing, refresh };
+}
+
+// ---------------------------------------------------------------------------
+// useStudentAllQuizzes — all quizzes across student's joined classes
+// ---------------------------------------------------------------------------
+
+export function useStudentAllQuizzes() {
+  const user = useAuthStore((state) => state.user);
+  const [quizzes, setQuizzes] = useState<QuizWithStudentStatusAndClass[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchQuizzes = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+
+    // 1. Get classes the student belongs to
+    const { data: membershipData } = await supabase
+      .from("class_members")
+      .select("class_id")
+      .eq("student_id", user.id);
+
+    const classIds = (membershipData ?? []).map((m: any) => m.class_id);
+    if (classIds.length === 0) {
+      setQuizzes([]);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Fetch published quizzes in those classes, with class name
+    const { data: quizData, error: quizError } = await supabase
+      .from("quizzes")
+      .select("*, class:classes!quizzes_class_id_fkey(name)")
+      .in("class_id", classIds)
+      .eq("status", "published")
+      .order("updated_at", { ascending: false });
+
+    if (quizError) {
+      console.error("[useStudentAllQuizzes] fetch error:", quizError);
+      setQuizzes([]);
+      setLoading(false);
+      return;
+    }
+
+    const quizList = (quizData ?? []) as any[];
+    if (quizList.length === 0) {
+      setQuizzes([]);
+      setLoading(false);
+      return;
+    }
+
+    // 3. Fetch the student's quiz attempts for these quizzes
+    const quizIds = quizList.map((q: any) => q.id);
+    const { data: attemptData } = await supabase
+      .from("quiz_attempts")
+      .select("*")
+      .eq("student_id", user.id)
+      .in("quiz_id", quizIds);
+
+    const attemptMap = new Map<string, QuizAttempt>();
+    for (const a of attemptData ?? []) {
+      attemptMap.set(a.quiz_id, a as QuizAttempt);
+    }
+
+    // 4. Derive status for each quiz
+    const withStatus: QuizWithStudentStatusAndClass[] = quizList.map((row: any) => {
+      const attempt = attemptMap.get(row.id);
+      return {
+        ...row,
+        class_name: row.class?.name ?? "Unknown Class",
+        studentStatus: deriveStatus(attempt),
+        score: attempt ? attempt.score : null,
+        maxScore: attempt ? attempt.max_score : null,
+      };
+    });
+
+    setQuizzes(withStatus);
+    setLoading(false);
+  }, [user]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);

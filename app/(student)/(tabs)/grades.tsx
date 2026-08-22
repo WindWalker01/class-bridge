@@ -16,29 +16,6 @@ import {
   SkeletonCard,
   ThemedText,
 } from "@/components";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
-import { useStudentFinalGrades } from "@/hooks/useGradeEngine";
-import type { CategoryBreakdown, FinalGrade } from "@/types";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function letterColor(letter: string): string {
-  switch (letter) {
-    case "A":
-      return colors.success;
-    case "B":
-      return "#2563eb";
-    case "C":
-      return colors.warning;
-    case "D":
-      return "#f97316";
-    default:
-      return colors.danger;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Category Breakdown Row
 // ---------------------------------------------------------------------------
@@ -159,7 +136,6 @@ function ClassGradeSection({
 const accent = getAccent("student");
 
 export default function GradesScreen() {
-  const router = useRouter();
   const { finalGrades, loading, refreshing, refresh } = useStudentFinalGrades();
 
   const renderSection = ({
@@ -183,11 +159,17 @@ export default function GradesScreen() {
     <Screen>
       <View style={{ flex: 1 }}>
         {/* Header */}
-        <ScreenHeader
-          title="Grades"
-          subtitle={`${finalGrades.length} ${finalGrades.length === 1 ? "class" : "classes"}`}
-          onBack={() => router.back()}
-        />
+        <View
+          style={{
+            paddingTop: spacing.lg,
+            paddingBottom: spacing.md,
+          }}
+        >
+          <ThemedText variant="display">Grades</ThemedText>
+          <ThemedText muted>
+            {finalGrades.length} {finalGrades.length === 1 ? "class" : "classes"}
+          </ThemedText>
+        </View>
 
         {/* Grade sections */}
         {loading && finalGrades.length === 0 ? (
@@ -222,4 +204,26 @@ export default function GradesScreen() {
       </View>
     </Screen>
   );
+}
+import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import { useStudentFinalGrades } from "@/hooks/useGradeEngine";
+import type { CategoryBreakdown, FinalGrade } from "@/types";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function letterColor(letter: string): string {
+  switch (letter) {
+    case "A":
+      return colors.success;
+    case "B":
+      return "#2563eb";
+    case "C":
+      return colors.warning;
+    case "D":
+      return "#f97316";
+    default:
+      return colors.danger;
+  }
 }

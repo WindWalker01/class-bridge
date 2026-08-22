@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/immutability */
 /**
  * Reusable press-scale + opacity animation hook for buttons and pressable
  * surfaces. Provides animated styles and event handlers that produce a
@@ -80,4 +81,3 @@ export function usePressAnimation(options?: {
 
   return { animatedStyle, pressIn, pressOut };
 }
-﻿

@@ -1,11 +1,11 @@
 import type { ComponentType } from "react";
-import type { SvgProps } from "react-native-svg";
 import { type PressableProps, type ViewStyle } from "react-native";
 import Animated from "react-native-reanimated";
+import type { SvgProps } from "react-native-svg";
 
+import { usePressAnimation } from "@/components/animations";
 import { radii } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { usePressAnimation } from "@/components/animations";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,8 +64,7 @@ export function IconButton({
   const dim = Math.max(size + 20, 44); // ensure 44pt minimum touch target
 
   const bg =
-    backgroundColor ??
-    (variant === "filled" ? colors.primary : "transparent");
+    backgroundColor ?? (variant === "filled" ? colors.primary : "transparent");
 
   const iconColor =
     color ?? (variant === "filled" ? colors.white : colors.textMuted);
@@ -88,9 +87,20 @@ export function IconButton({
 
   return (
     <Animated.View
-      style={{ ...containerStyle, ...(!disabled ? (animatedStyle as any) : {}), ...(style as any) }}
+      style={{
+        ...containerStyle,
+        ...(!disabled ? (animatedStyle as any) : {}),
+        ...(style as any),
+      }}
       onTouchStart={!disabled ? pressIn : undefined}
-      onTouchEnd={!disabled ? () => { pressOut(); onPress?.(); } : undefined}
+      onTouchEnd={
+        !disabled
+          ? (e) => {
+              pressOut();
+              onPress?.(e);
+            }
+          : undefined
+      }
       onTouchCancel={!disabled ? pressOut : undefined}
       accessibilityRole="button"
       {...(otherRest as any)}

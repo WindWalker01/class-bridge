@@ -26,6 +26,36 @@ create policy "Users can view own profile"
   for select
   using (auth.uid() = id);
 
+-- Students can view teacher profiles (for showing teacher names in "My Classes")
+drop policy if exists "Students can view teacher profiles" on public.profiles;
+create policy "Students can view teacher profiles"
+  on public.profiles
+  for select
+  using (
+    exists (
+      select 1
+      from public.classes c
+      inner join public.class_members cm on cm.class_id = c.id
+      where c.teacher_id = profiles.id
+        and cm.student_id = auth.uid()
+    )
+  );
+
+-- Teachers can view student profiles (for gradebook, roster, leaderboard)
+drop policy if exists "Teachers can view student profiles" on public.profiles;
+create policy "Teachers can view student profiles"
+  on public.profiles
+  for select
+  using (
+    exists (
+      select 1
+      from public.classes c
+      inner join public.class_members cm on cm.class_id = c.id
+      where cm.student_id = profiles.id
+        and c.teacher_id = auth.uid()
+    )
+  );
+
 -- Allow users to update only their own profile
 create policy "Users can update own profile"
   on public.profiles
