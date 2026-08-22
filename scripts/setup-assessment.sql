@@ -88,6 +88,7 @@ alter table public.answers enable row level security;
 -- ============================================================================
 
 -- Teachers can view questions for quizzes in their classes
+drop policy if exists "Teachers can view questions in own classes" on public.questions;
 create policy "Teachers can view questions in own classes"
   on public.questions
   for select
@@ -101,6 +102,7 @@ create policy "Teachers can view questions in own classes"
   );
 
 -- Students can view questions for published quizzes in enrolled classes
+drop policy if exists "Students can view questions in enrolled classes" on public.questions;
 create policy "Students can view questions in enrolled classes"
   on public.questions
   for select
@@ -115,6 +117,7 @@ create policy "Students can view questions in enrolled classes"
   );
 
 -- Teachers can insert questions for quizzes in their classes
+drop policy if exists "Teachers can insert questions in own classes" on public.questions;
 create policy "Teachers can insert questions in own classes"
   on public.questions
   for insert
@@ -128,6 +131,7 @@ create policy "Teachers can insert questions in own classes"
   );
 
 -- Teachers can update questions for quizzes in their classes
+drop policy if exists "Teachers can update questions in own classes" on public.questions;
 create policy "Teachers can update questions in own classes"
   on public.questions
   for update
@@ -149,6 +153,7 @@ create policy "Teachers can update questions in own classes"
   );
 
 -- Teachers can delete questions for quizzes in their classes
+drop policy if exists "Teachers can delete questions in own classes" on public.questions;
 create policy "Teachers can delete questions in own classes"
   on public.questions
   for delete
@@ -166,6 +171,7 @@ create policy "Teachers can delete questions in own classes"
 -- ============================================================================
 
 -- Teachers can view attempts for quizzes in their classes
+drop policy if exists "Teachers can view attempts in own classes" on public.quiz_attempts;
 create policy "Teachers can view attempts in own classes"
   on public.quiz_attempts
   for select
@@ -179,12 +185,14 @@ create policy "Teachers can view attempts in own classes"
   );
 
 -- Students can view their own attempts
+drop policy if exists "Students can view own attempts" on public.quiz_attempts;
 create policy "Students can view own attempts"
   on public.quiz_attempts
   for select
   using (student_id = auth.uid());
 
 -- Students can insert their own attempts
+drop policy if exists "Students can insert own attempts" on public.quiz_attempts;
 create policy "Students can insert own attempts"
   on public.quiz_attempts
   for insert
@@ -198,6 +206,7 @@ create policy "Students can insert own attempts"
   );
 
 -- Students can update their own attempts (e.g., submit)
+drop policy if exists "Students can update own attempts" on public.quiz_attempts;
 create policy "Students can update own attempts"
   on public.quiz_attempts
   for update
@@ -209,6 +218,7 @@ create policy "Students can update own attempts"
 -- ============================================================================
 
 -- Teachers can view answers for attempts in their classes
+drop policy if exists "Teachers can view answers in own classes" on public.answers;
 create policy "Teachers can view answers in own classes"
   on public.answers
   for select
@@ -223,6 +233,7 @@ create policy "Teachers can view answers in own classes"
   );
 
 -- Students can view their own answers
+drop policy if exists "Students can view own answers" on public.answers;
 create policy "Students can view own answers"
   on public.answers
   for select
@@ -235,6 +246,7 @@ create policy "Students can view own answers"
   );
 
 -- Students can insert their own answers
+drop policy if exists "Students can insert own answers" on public.answers;
 create policy "Students can insert own answers"
   on public.answers
   for insert
@@ -248,6 +260,7 @@ create policy "Students can insert own answers"
   );
 
 -- Students can update their own answers (while attempt is in progress)
+drop policy if exists "Students can update own answers" on public.answers;
 create policy "Students can update own answers"
   on public.answers
   for update
@@ -388,13 +401,21 @@ begin
   where id = p_attempt_id;
 
   -- Upsert into the new grades table (Grade Engine)
-  insert into public.grades (graded_item_id, student_id, score)
-  select gi.id, v_attempt.student_id, v_total_score
-  from public.graded_items gi
-  where gi.source_type = 'quiz'
-    and gi.source_id = v_attempt.quiz_id
-  on conflict (graded_item_id, student_id)
-  do update set score = excluded.score, graded_at = now();
+  if not exists (
+    select 1 from public.graded_items gi
+    where gi.source_type = 'quiz'
+      and gi.source_id = v_attempt.quiz_id
+  ) then
+    raise warning 'No graded_item found for quiz % — skipping grade insert. Ensure the quiz was published while the grade engine was active.', v_attempt.quiz_id;
+  else
+    insert into public.grades (graded_item_id, student_id, score)
+    select gi.id, v_attempt.student_id, v_total_score
+    from public.graded_items gi
+    where gi.source_type = 'quiz'
+      and gi.source_id = v_attempt.quiz_id
+    on conflict (graded_item_id, student_id)
+    do update set score = excluded.score, graded_at = now();
+  end if;
 
   -- Return the updated attempt
   select * into v_attempt

@@ -76,7 +76,7 @@ function StartScreen({
   const modeInfo = modeLabels[mode] ?? modeLabels.standard;
 
   return (
-    <FadeInUp>
+    <View style={{ flex: 1 }}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -178,7 +178,7 @@ function StartScreen({
           onPress={onStart}
         />
       </ScrollView>
-    </FadeInUp>
+    </View>
   );
 }
 
@@ -645,7 +645,7 @@ function QuestionScreen({
                   fontWeight: "600",
                   color: colors.success,
                 }}
-                format={(v) => `${Math.round(v)} pts`}
+                suffix=" pts"
               />
             </View>
           </View>
@@ -1091,7 +1091,7 @@ function ResultsScreen({
                     fontWeight: "700",
                     color: isStrongScore ? colors.success : colors.text,
                   }}
-                  format={(v) => `${Math.round(v)}%`}
+                  suffix="%"
                 />
               ) : (
                 <ThemedText
@@ -1148,13 +1148,31 @@ function ResultsScreen({
 }
 
 // ---------------------------------------------------------------------------
-// Take Quiz Screen
+// Error Redirect Component
 // ---------------------------------------------------------------------------
 
+/** Renders a blank screen and fires the Toast + nav-back inside an effect. */
+function ErrorRedirect({ message }: { message: string }) {
+  const { show } = useToast();
+
+  useEffect(() => {
+    show(message, { type: "error" });
+    router.back();
+  }, [message]);
+
+  return (
+    <Screen>
+      <View style={{ flex: 1 }} />
+    </Screen>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Take Quiz Screen
+// ---------------------------------------------------------------------------
 export default function TakeQuizScreen() {
   const { id, quizId } = useLocalSearchParams<{ id: string; quizId: string }>();
   const classId = id ?? "";
-  const { show } = useToast();
 
   const {
     quiz,
@@ -1365,10 +1383,8 @@ const handleViewResults = () => {
   }
 
   if (error) {
-    // Show error via Toast and redirect back
-    show(error, { type: "error" });
-    router.back();
-    return null;
+    // Show error via Toast and redirect back via effect
+    return <ErrorRedirect message={error} />;
   }
 
   // Graded review screen

@@ -35,7 +35,10 @@ export function useQuizTaking(quizId: string) {
   // ---------------------------------------------------------------------------
 
   const fetchData = useCallback(async () => {
-    if (!quizId || !user) return;
+    if (!quizId || !user) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -69,6 +72,7 @@ export function useQuizTaking(quizId: string) {
     }
 
     setQuestions((questionData ?? []) as Question[]);
+    const fetchedQuestions = (questionData ?? []) as Question[];
 
     // Check for existing attempt
     const { data: attemptData, error: attemptError } = await supabase
@@ -96,7 +100,7 @@ export function useQuizTaking(quizId: string) {
 
       // If already submitted/graded, don't allow changes
       if (existingAttempt.status !== "in_progress") {
-        setCurrentIndex(questions.length); // show review
+        setCurrentIndex(fetchedQuestions.length); // show review
       }
     }
 

@@ -56,6 +56,7 @@ alter table public.grades enable row level security;
 -- RLS Policies: grade_categories
 -- ============================================================================
 
+drop policy if exists "Teachers can view grade categories in own classes" on public.grade_categories;
 -- Teachers can view grade categories for their own classes
 create policy "Teachers can view grade categories in own classes"
   on public.grade_categories
@@ -69,6 +70,7 @@ create policy "Teachers can view grade categories in own classes"
   );
 
 -- Students can view grade categories for enrolled classes
+drop policy if exists "Students can view grade categories in enrolled classes" on public.grade_categories;
 create policy "Students can view grade categories in enrolled classes"
   on public.grade_categories
   for select
@@ -81,6 +83,7 @@ create policy "Students can view grade categories in enrolled classes"
   );
 
 -- Teachers can insert grade categories for their own classes
+drop policy if exists "Teachers can insert grade categories in own classes" on public.grade_categories;
 create policy "Teachers can insert grade categories in own classes"
   on public.grade_categories
   for insert
@@ -93,6 +96,7 @@ create policy "Teachers can insert grade categories in own classes"
   );
 
 -- Teachers can update grade categories for their own classes
+drop policy if exists "Teachers can update grade categories in own classes" on public.grade_categories;
 create policy "Teachers can update grade categories in own classes"
   on public.grade_categories
   for update
@@ -112,6 +116,7 @@ create policy "Teachers can update grade categories in own classes"
   );
 
 -- Teachers can delete grade categories for their own classes
+drop policy if exists "Teachers can delete grade categories in own classes" on public.grade_categories;
 create policy "Teachers can delete grade categories in own classes"
   on public.grade_categories
   for delete
@@ -128,6 +133,7 @@ create policy "Teachers can delete grade categories in own classes"
 -- ============================================================================
 
 -- Teachers can view graded items for their own classes
+drop policy if exists "Teachers can view graded items in own classes" on public.graded_items;
 create policy "Teachers can view graded items in own classes"
   on public.graded_items
   for select
@@ -140,6 +146,7 @@ create policy "Teachers can view graded items in own classes"
   );
 
 -- Students can view graded items for enrolled classes
+drop policy if exists "Students can view graded items in enrolled classes" on public.graded_items;
 create policy "Students can view graded items in enrolled classes"
   on public.graded_items
   for select
@@ -152,6 +159,7 @@ create policy "Students can view graded items in enrolled classes"
   );
 
 -- Teachers can insert graded items for their own classes
+drop policy if exists "Teachers can insert graded items in own classes" on public.graded_items;
 create policy "Teachers can insert graded items in own classes"
   on public.graded_items
   for insert
@@ -164,6 +172,7 @@ create policy "Teachers can insert graded items in own classes"
   );
 
 -- Teachers can update graded items for their own classes
+drop policy if exists "Teachers can update graded items in own classes" on public.graded_items;
 create policy "Teachers can update graded items in own classes"
   on public.graded_items
   for update
@@ -183,6 +192,7 @@ create policy "Teachers can update graded items in own classes"
   );
 
 -- Teachers can delete graded items for their own classes
+drop policy if exists "Teachers can delete graded items in own classes" on public.graded_items;
 create policy "Teachers can delete graded items in own classes"
   on public.graded_items
   for delete
@@ -199,6 +209,7 @@ create policy "Teachers can delete graded items in own classes"
 -- ============================================================================
 
 -- Teachers can view grades for their own classes
+drop policy if exists "Teachers can view grades in own classes" on public.grades;
 create policy "Teachers can view grades in own classes"
   on public.grades
   for select
@@ -212,12 +223,14 @@ create policy "Teachers can view grades in own classes"
   );
 
 -- Students can view their own grades
+drop policy if exists "Students can view own grades" on public.grades;
 create policy "Students can view own grades"
   on public.grades
   for select
   using (student_id = auth.uid());
 
 -- Teachers can insert grades for their own classes
+drop policy if exists "Teachers can insert grades in own classes" on public.grades;
 create policy "Teachers can insert grades in own classes"
   on public.grades
   for insert
@@ -231,6 +244,7 @@ create policy "Teachers can insert grades in own classes"
   );
 
 -- Teachers can update grades for their own classes
+drop policy if exists "Teachers can update grades in own classes" on public.grades;
 create policy "Teachers can update grades in own classes"
   on public.grades
   for update
@@ -268,47 +282,60 @@ end;
 $$ language plpgsql immutable;
 
 -- ============================================================================
--- Trigger: auto-create graded_item when a quiz is published
+-- Helper: ensure a graded_item exists for a quiz
 -- ============================================================================
 
-create or replace function public.trg_quiz_published()
-returns trigger as $$
+create or replace function public.ensure_quiz_graded_item(
+  p_quiz_id   uuid,
+  p_class_id  uuid,
+  p_title     text
+)
+returns void as $$
 declare
   v_category_id uuid;
   v_total_points numeric;
 begin
+  -- Find or create a default "Quizzes" category for this class
+  select id into v_category_id
+  from public.grade_categories
+  where class_id = p_class_id and name = 'Quizzes';
+
+  if not found then
+    insert into public.grade_categories (class_id, name, weight)
+    values (p_class_id, 'Quizzes', 100)
+    returning id into v_category_id;
+  end if;
+
+  -- Sum total points for this quiz
+  select coalesce(sum(points), 0) into v_total_points
+  from public.questions
+  where quiz_id = p_quiz_id;
+
+  if v_total_points = 0 then
+    v_total_points := 100;
+  end if;
+
+  -- Insert graded_item (skip if already exists for this quiz)
+  if not exists (
+    select 1 from public.graded_items
+    where source_type = 'quiz' and source_id = p_quiz_id
+  ) then
+    insert into public.graded_items (class_id, category_id, source_type, source_id, title, max_score)
+    values (p_class_id, v_category_id, 'quiz', p_quiz_id, p_title, v_total_points);
+  end if;
+end;
+$$ language plpgsql security definer;
+
+-- ============================================================================
+-- Trigger: auto-create graded_item when a quiz is published (update)
+-- ============================================================================
+
+create or replace function public.trg_quiz_published()
+returns trigger as $$
+begin
   -- Only fire when status transitions TO 'published'
   if new.status = 'published' and (old.status is distinct from 'published') then
-
-    -- Find or create a default "Quizzes" category for this class
-    select id into v_category_id
-    from public.grade_categories
-    where class_id = new.class_id and name = 'Quizzes';
-
-    if not found then
-      insert into public.grade_categories (class_id, name, weight)
-      values (new.class_id, 'Quizzes', 100)
-      returning id into v_category_id;
-    end if;
-
-    -- Sum total points for this quiz
-    select coalesce(sum(points), 0) into v_total_points
-    from public.questions
-    where quiz_id = new.id;
-
-    if v_total_points = 0 then
-      v_total_points := 100;
-    end if;
-
-    -- Insert graded_item (skip if already exists for this quiz)
-    if not exists (
-      select 1 from public.graded_items
-      where source_type = 'quiz' and source_id = new.id
-    ) then
-      insert into public.graded_items (class_id, category_id, source_type, source_id, title, max_score)
-      values (new.class_id, v_category_id, 'quiz', new.id, new.title, v_total_points);
-    end if;
-
+    perform public.ensure_quiz_graded_item(new.id, new.class_id, new.title);
   end if;
 
   return new;
@@ -325,7 +352,7 @@ create or replace function public.trg_quiz_inserted()
 returns trigger as $$
 begin
   if new.status = 'published' then
-    perform public.trg_quiz_published() from (select new, new as old) as t;
+    perform public.ensure_quiz_graded_item(new.id, new.class_id, new.title);
   end if;
   return new;
 end;
@@ -344,38 +371,56 @@ create trigger quizzes_after_insert
 alter table public.posts
   add column if not exists quiz_id uuid references public.quizzes(id) on delete cascade;
 
-create or replace function public.trg_quiz_feed_post()
-returns trigger as $$
+-- ============================================================================
+-- Helper: create a quiz_link post for a published quiz
+-- ============================================================================
+
+create or replace function public.ensure_quiz_feed_post(
+  p_quiz_id      uuid,
+  p_class_id     uuid,
+  p_title        text,
+  p_description  text
+)
+returns void as $$
 declare
   v_teacher_id uuid;
-  v_post_id    uuid;
+begin
+  -- Get the teacher who owns this class
+  select teacher_id into v_teacher_id
+  from public.classes
+  where id = p_class_id;
+
+  -- Insert a quiz_link post (skip if one already exists for this quiz)
+  if not exists (
+    select 1 from public.posts
+    where quiz_id = p_quiz_id
+  ) then
+    insert into public.posts (class_id, author_id, type, content, quiz_id)
+    values (
+      p_class_id,
+      v_teacher_id,
+      'quiz_link',
+      case
+        when p_description is not null and p_description != ''
+          then '📝 A new quiz "' || p_title || '" is now available: ' || p_description
+        else '📝 A new quiz "' || p_title || '" is now available!'
+      end,
+      p_quiz_id
+    );
+  end if;
+end;
+$$ language plpgsql security definer;
+
+-- ============================================================================
+-- Trigger: manage feed post on quiz publish/unpublish (update)
+-- ============================================================================
+
+create or replace function public.trg_quiz_feed_post()
+returns trigger as $$
 begin
   -- Published → create a quiz_link post in the class feed
   if new.status = 'published' and (old.status is distinct from 'published') then
-    -- Get the teacher who owns this class
-    select teacher_id into v_teacher_id
-    from public.classes
-    where id = new.class_id;
-
-    -- Insert a quiz_link post (skip if one already exists for this quiz)
-    if not exists (
-      select 1 from public.posts
-      where quiz_id = new.id
-    ) then
-      insert into public.posts (class_id, author_id, type, content, quiz_id)
-      values (
-        new.class_id,
-        v_teacher_id,
-        'quiz_link',
-        case
-          when new.description is not null and new.description != ''
-            then '📝 A new quiz "' || new.title || '" is now available: ' || new.description
-          else '📝 A new quiz "' || new.title || '" is now available!'
-        end,
-        new.id
-      )
-      returning id into v_post_id;
-    end if;
+    perform public.ensure_quiz_feed_post(new.id, new.class_id, new.title, new.description);
 
   -- Unpublished → remove the quiz_link post from the feed
   elsif old.status = 'published' and new.status is distinct from 'published' then
@@ -398,7 +443,7 @@ create or replace function public.trg_quiz_inserted_feed()
 returns trigger as $$
 begin
   if new.status = 'published' then
-    perform public.trg_quiz_feed_post() from (select new, new as old) as t;
+    perform public.ensure_quiz_feed_post(new.id, new.class_id, new.title, new.description);
   end if;
   return new;
 end;

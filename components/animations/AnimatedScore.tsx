@@ -31,8 +31,8 @@ export type AnimatedScoreProps = {
   duration?: number;
   /** Optional style overrides. */
   style?: any;
-  /** Format function for the number. Default Math.round. */
-  format?: (v: number) => string;
+  /** Optional suffix appended after the rounded number (e.g. " pts" or "%"). */
+  suffix?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ export function AnimatedScore({
   value,
   duration = 400,
   style,
-  format = (v: number) => String(Math.round(v)),
+  suffix = "",
 }: AnimatedScoreProps) {
   const animatedValue = useSharedValue(value);
   const lastValueRef = useRef(value);
@@ -57,9 +57,9 @@ export function AnimatedScore({
 
   const animatedProps = useAnimatedProps(() => {
     return {
-      text: format(animatedValue.value),
+      text: `${String(Math.round(animatedValue.value))}${suffix}`,
     } as any;
-  }, [format]);
+  }, []);
 
   return (
     <AnimatedText

@@ -219,7 +219,6 @@ function LeaderboardCard({
               fontWeight: "600",
               color: isCurrentUser ? accent.accentText : colors.text,
             }}
-            format={(v) => String(Math.round(v))}
           />
           <ThemedText variant="small" muted>
             / {entry.max_score}
