@@ -1,11 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  KeyboardAvoidingView,
   Pressable,
   ScrollView,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { Layout } from "react-native-reanimated";
 import { Trash2 } from "lucide-react-native";
 
@@ -72,6 +74,7 @@ export default function GradeSettingsScreen() {
   const { categories, loading } = useGradeCategories(classId);
   const { save, saving } = useSaveGradeCategories(classId);
   const toast = useToast();
+  const insets = useSafeAreaInsets();
 
   const [items, setItems] = useState<EditableCategory[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -161,9 +164,15 @@ export default function GradeSettingsScreen() {
 
   return (
     <Screen>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior="padding"
+        keyboardVerticalOffset={insets.top}
+      >
       <ScrollView
         contentContainerStyle={{ paddingBottom: spacing.xxl }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
         <ScreenHeader
@@ -323,6 +332,7 @@ export default function GradeSettingsScreen() {
           loading={saving}
         />
       </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

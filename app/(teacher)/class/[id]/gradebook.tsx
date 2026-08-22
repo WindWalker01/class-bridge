@@ -2,11 +2,13 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Pressable,
   ScrollView,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   Badge,
@@ -75,6 +77,7 @@ export default function GradebookScreen() {
   const classId = id ?? "";
   const accent = getAccent("teacher");
   const { classData } = useClass(classId);
+  const insets = useSafeAreaInsets();
 
   // Data hooks
   const { categories } = useGradeCategories(classId);
@@ -275,6 +278,11 @@ export default function GradebookScreen() {
 
   return (
     <Screen>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior="padding"
+        keyboardVerticalOffset={insets.top}
+      >
       <View style={{ flex: 1 }}>
         {/* Header */}
         <ScreenHeader
@@ -719,6 +727,7 @@ export default function GradebookScreen() {
           </ScrollView>
         )}
       </View>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

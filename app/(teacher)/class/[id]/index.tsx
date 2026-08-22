@@ -5,12 +5,12 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   RefreshControl,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   AnimatedListItem,
@@ -25,20 +25,14 @@ import {
   ScreenHeader,
   SkeletonCard,
   ThemedText,
-  useToast,
 } from "@/components";
-import { BookOpen, Clipboard, FileText, Paperclip } from "lucide-react-native";
-import {
-  modeColor,
-  radii,
-  spacing,
-  typography,
-} from "@/constants/theme";
-import { useTheme } from "@/hooks/useTheme";
+import { radii, spacing, typography } from "@/constants/theme";
 import { useClass, useClassFeed } from "@/hooks/useClasses";
+import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { Attachment, PostType, PostWithDetails } from "@/types";
+import { FileText, Paperclip } from "lucide-react-native";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -72,8 +66,8 @@ function isImageType(mime: string): boolean {
 // Static decorative colours for post type badges (not theme-dependent)
 const POST_TYPE_COLORS: Record<PostType, string> = {
   announcement: "#6366f1", // indigo
-  material: "#0ea5e9",    // sky
-  quiz_link: "#f59e0b",   // amber
+  material: "#0ea5e9", // sky
+  quiz_link: "#f59e0b", // amber
 };
 
 // ---------------------------------------------------------------------------
@@ -158,7 +152,13 @@ function PostCard({ post }: { post: PostWithDetails }) {
         </View>
         <Badge
           label={POST_TYPE_LABELS[post.type]}
-          tone={post.type === "announcement" ? "accent" : post.type === "material" ? "neutral" : "warning"}
+          tone={
+            post.type === "announcement"
+              ? "accent"
+              : post.type === "material"
+                ? "neutral"
+                : "warning"
+          }
           size="sm"
         />
       </View>
@@ -484,6 +484,7 @@ export default function ClassFeedScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const classId = id ?? "";
   const { colors, accent } = useTheme();
+  const insets = useSafeAreaInsets();
   const { classData, loading: classLoading } = useClass(classId);
   const { posts, loading, refreshing, refresh, setPosts } =
     useClassFeed(classId);
@@ -511,18 +512,26 @@ export default function ClassFeedScreen() {
     <Screen>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        behavior="padding"
+        keyboardVerticalOffset={insets.top}
       >
         {/* Header */}
         <ScreenHeader
-          title={classLoading ? "Loading..." : (classData?.name ?? "Class Feed")}
-          subtitle={classData ? `${classData.subject}${classData.section ? ` · ${classData.section}` : ""}` : undefined}
+          title={
+            classLoading ? "Loading..." : (classData?.name ?? "Class Feed")
+          }
+          subtitle={
+            classData
+              ? `${classData.subject}${classData.section ? ` · ${classData.section}` : ""}`
+              : undefined
+          }
           onBack={() => router.back()}
           rightAction={
             <View style={{ flexDirection: "row", gap: spacing.xs }}>
               <Pressable
-                onPress={() => router.push(`/(teacher)/class/${classId}/quizzes` as any)}
+                onPress={() =>
+                  router.push(`/(teacher)/class/${classId}/quizzes` as any)
+                }
                 style={{
                   paddingHorizontal: spacing.sm,
                   paddingVertical: spacing.xs,
@@ -530,12 +539,17 @@ export default function ClassFeedScreen() {
                   backgroundColor: accent.accentSoft,
                 }}
               >
-                <ThemedText variant="small" style={{ color: accent.accentText, fontWeight: "600" }}>
+                <ThemedText
+                  variant="small"
+                  style={{ color: accent.accentText, fontWeight: "600" }}
+                >
                   Quizzes
                 </ThemedText>
               </Pressable>
               <Pressable
-                onPress={() => router.push(`/(teacher)/class/${classId}/gradebook` as any)}
+                onPress={() =>
+                  router.push(`/(teacher)/class/${classId}/gradebook` as any)
+                }
                 style={{
                   paddingHorizontal: spacing.sm,
                   paddingVertical: spacing.xs,
@@ -543,12 +557,19 @@ export default function ClassFeedScreen() {
                   backgroundColor: accent.accentSoft,
                 }}
               >
-                <ThemedText variant="small" style={{ color: accent.accentText, fontWeight: "600" }}>
+                <ThemedText
+                  variant="small"
+                  style={{ color: accent.accentText, fontWeight: "600" }}
+                >
                   Grades
                 </ThemedText>
               </Pressable>
               <Pressable
-                onPress={() => router.push(`/(teacher)/class/${classId}/grade-settings` as any)}
+                onPress={() =>
+                  router.push(
+                    `/(teacher)/class/${classId}/grade-settings` as any,
+                  )
+                }
                 style={{
                   paddingHorizontal: spacing.sm,
                   paddingVertical: spacing.xs,
@@ -556,7 +577,10 @@ export default function ClassFeedScreen() {
                   backgroundColor: accent.accentSoft,
                 }}
               >
-                <ThemedText variant="small" style={{ color: accent.accentText, fontWeight: "600" }}>
+                <ThemedText
+                  variant="small"
+                  style={{ color: accent.accentText, fontWeight: "600" }}
+                >
                   Weights
                 </ThemedText>
               </Pressable>
