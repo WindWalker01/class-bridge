@@ -475,38 +475,50 @@ create policy "Teachers can delete quizzes in own classes"
 -- ============================================================================
 -- Storage Bucket: class-attachments
 -- ============================================================================
--- Run this section separately in the Supabase Storage SQL editor or via the
--- dashboard. The bucket should be private (not public).
+-- Run this section in the Supabase SQL editor. The bucket is private (not
+-- public). This section is idempotent and can be re-run safely.
 
--- Create the storage bucket (run via dashboard or SQL):
--- insert into storage.buckets (id, name, public) values ('class-attachments', 'class-attachments', false);
+-- Create the storage bucket:
+insert into storage.buckets (id, name, public)
+values ('class-attachments', 'class-attachments', false)
+on conflict (id) do nothing;
 
--- Storage RLS: Teachers can upload/read/delete files for their classes
--- create policy "Teachers can manage class attachment files"
---   on storage.objects
---   for all
---   using (
---     bucket_id = 'class-attachments'
---     and exists (
---       select 1 from public.classes
---       where classes.id::text = (storage.foldername(name))[1]
---         and classes.teacher_id = auth.uid()
---     )
---   );
+-- Storage RLS: Teachers can upload/read/update/delete files for their classes
+drop policy if exists "Teachers can manage class attachment files" on storage.objects;
+create policy "Teachers can manage class attachment files"
+  on storage.objects
+  for all
+  using (
+    bucket_id = 'class-attachments'
+    and exists (
+      select 1 from public.classes
+      where classes.id::text = (storage.foldername(name))[1]
+        and classes.teacher_id = auth.uid()
+    )
+  )
+  with check (
+    bucket_id = 'class-attachments'
+    and exists (
+      select 1 from public.classes
+      where classes.id::text = (storage.foldername(name))[1]
+        and classes.teacher_id = auth.uid()
+    )
+  );
 
 -- Storage RLS: Students can read files for classes they are enrolled in
--- create policy "Students can read class attachment files"
---   on storage.objects
---   for select
---   using (
---     bucket_id = 'class-attachments'
---     and exists (
---       select 1 from public.class_members
---       join public.classes on classes.id = class_members.class_id
---       where classes.id::text = (storage.foldername(name))[1]
---         and class_members.student_id = auth.uid()
---     )
---   );
+drop policy if exists "Students can read class attachment files" on storage.objects;
+create policy "Students can read class attachment files"
+  on storage.objects
+  for select
+  using (
+    bucket_id = 'class-attachments'
+    and exists (
+      select 1 from public.class_members
+      join public.classes on classes.id = class_members.class_id
+      where classes.id::text = (storage.foldername(name))[1]
+        and class_members.student_id = auth.uid()
+    )
+  );
 
 -- ============================================================================
 -- Indexes for common query patterns
