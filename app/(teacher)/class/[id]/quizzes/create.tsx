@@ -1,9 +1,20 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 
-import { Button, Screen, TextField, ThemedText } from "@/components";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import {
+  Button,
+  Card,
+  Screen,
+  ScreenHeader,
+  TextField,
+  ThemedText,
+  useToast,
+} from "@/components";
+import { BookOpen, Timer, Zap } from "lucide-react-native";
+import { modeColor, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { useResponsive } from "@/hooks/useResponsive";
 import { supabase } from "@/lib/supabase";
 import type { QuizMode } from "@/types";
 
@@ -11,28 +22,34 @@ import type { QuizMode } from "@/types";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MODE_OPTIONS: { key: QuizMode; label: string; description: string }[] = [
+const MODE_OPTIONS: {
+  key: QuizMode;
+  label: string;
+  description: string;
+  icon: typeof Timer;
+}[] = [
   {
     key: "standard",
     label: "Standard",
     description:
       "Sequential questions, no timers. Students work at their own pace.",
+    icon: BookOpen,
   },
   {
     key: "timed",
     label: "Timed Questions",
     description:
       "Per-question countdown timer. Auto-advances when time expires.",
+    icon: Timer,
   },
   {
     key: "gamified",
     label: "Gamified",
     description:
       "Points with speed bonuses, streak tracking, and live score display.",
+    icon: Zap,
   },
 ];
-
-const accent = getAccent("teacher");
 
 // ---------------------------------------------------------------------------
 // Create Quiz Screen
@@ -41,6 +58,9 @@ const accent = getAccent("teacher");
 export default function CreateQuizScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const classId = id ?? "";
+  const { colors, accent } = useTheme();
+  const { isTablet } = useResponsive();
+  const { show } = useToast();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -77,7 +97,7 @@ export default function CreateQuizScreen() {
     setLoading(false);
 
     if (insertError) {
-      Alert.alert("Error", insertError.message);
+      show(insertError.message, { type: "error" });
       return;
     }
 
@@ -90,27 +110,12 @@ export default function CreateQuizScreen() {
 
   return (
     <Screen>
+      <ScreenHeader title="Create Quiz" onBack={() => router.back()} />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: spacing.xxl }}
+        contentContainerStyle={{ paddingBottom: spacing.xxl, maxWidth: isTablet ? 520 : undefined, alignSelf: isTablet ? "center" : undefined, width: "100%" }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <Pressable onPress={() => router.back()}>
-            <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-          </Pressable>
-          <ThemedText variant="heading">Create Quiz</ThemedText>
-        </View>
-
         {/* Title */}
         <View style={{ marginBottom: spacing.md }}>
           <TextField
@@ -146,61 +151,49 @@ export default function CreateQuizScreen() {
           </ThemedText>
           {MODE_OPTIONS.map((option) => {
             const isSelected = mode === option.key;
+            const Icon = option.icon;
             return (
-              <Pressable
+              <Card
                 key={option.key}
+                variant={isSelected ? "elevated" : "flat"}
                 onPress={() => setMode(option.key)}
-                style={{
-                  backgroundColor: isSelected
-                    ? accent.accentSoft
-                    : colors.surface,
-                  borderRadius: radii.md,
-                  borderWidth: 1,
-                  borderColor: isSelected ? accent.accent : colors.border,
-                  padding: spacing.md,
-                  marginBottom: spacing.sm,
-                }}
+                style={{ marginBottom: spacing.sm }}
               >
                 <View
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    gap: spacing.sm,
-                    marginBottom: spacing.xs,
+                    gap: spacing.md,
                   }}
                 >
                   <View
                     style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 10,
-                      borderWidth: 2,
-                      borderColor: isSelected
-                        ? accent.accent
-                        : colors.textMuted,
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: isSelected
+                        ? accent.accentSoft
+                        : colors.surfaceMuted,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    {isSelected && (
-                      <View
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 5,
-                          backgroundColor: accent.accent,
-                        }}
-                      />
-                    )}
+                    <Icon
+                      size={20}
+                      color={isSelected ? accent.accent : colors.textMuted}
+                      strokeWidth={1.5}
+                    />
                   </View>
-                  <ThemedText variant="body" style={{ fontWeight: "600" }}>
-                    {option.label}
-                  </ThemedText>
+                  <View style={{ flex: 1 }}>
+                    <ThemedText variant="body" style={{ fontWeight: "600" }}>
+                      {option.label}
+                    </ThemedText>
+                    <ThemedText variant="small" muted>
+                      {option.description}
+                    </ThemedText>
+                  </View>
                 </View>
-                <ThemedText variant="small" muted style={{ marginLeft: 28 }}>
-                  {option.description}
-                </ThemedText>
-              </Pressable>
+              </Card>
             );
           })}
         </View>

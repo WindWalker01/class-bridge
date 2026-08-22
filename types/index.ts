@@ -272,6 +272,7 @@ export type RootStackParamList = {
   "(auth)/profile-setup": undefined;
   "(teacher)": undefined;
   "(teacher)/create-class": undefined;
+  "(teacher)/settings": undefined;
   "(teacher)/class/[id]": { id: string };
   "(teacher)/class/[id]/quizzes": { id: string };
   "(teacher)/class/[id]/quizzes/create": { id: string };
@@ -281,6 +282,7 @@ export type RootStackParamList = {
   };
   "(teacher)/class/[id]/gradebook": { id: string };
   "(student)": undefined;
+  "(student)/settings": undefined;
   "(student)/class/[id]/quizzes/[quizId]/take": {
     id: string;
     quizId: string;

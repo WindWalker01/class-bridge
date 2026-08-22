@@ -18,9 +18,22 @@ export default function StudentLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "slide_from_right",
+        animationDuration: 300,
+      }}
+    >
       <Stack.Screen name="index" />
-      <Stack.Screen name="join-class" />
+      <Stack.Screen name="settings" />
+      <Stack.Screen
+        name="join-class"
+        options={{
+          presentation: "modal",
+          animation: "slide_from_bottom",
+        }}
+      />
       <Stack.Screen name="class/[id]/index" />
       <Stack.Screen name="class/[id]/quizzes" />
       <Stack.Screen name="grades" />

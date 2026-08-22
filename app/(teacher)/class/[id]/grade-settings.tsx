@@ -1,15 +1,23 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   TextInput,
   View,
 } from "react-native";
+import Animated, { Layout } from "react-native-reanimated";
+import { Trash2 } from "lucide-react-native";
 
-import { Button, Screen, ThemedText } from "@/components";
+import {
+  Button,
+  IconButton,
+  Screen,
+  ScreenHeader,
+  SkeletonCard,
+  ThemedText,
+  useToast,
+} from "@/components";
 import {
   colors,
   getAccent,
@@ -63,6 +71,7 @@ export default function GradeSettingsScreen() {
   const { classData } = useClass(classId);
   const { categories, loading } = useGradeCategories(classId);
   const { save, saving } = useSaveGradeCategories(classId);
+  const toast = useToast();
 
   const [items, setItems] = useState<EditableCategory[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -105,17 +114,16 @@ export default function GradeSettingsScreen() {
     // Validate all names are non-empty
     const emptyName = items.find((i) => !i.name.trim());
     if (emptyName) {
-      Alert.alert("Validation Error", "All categories must have a name.");
+      toast.show("All categories must have a name.", { type: "error" });
       return;
     }
 
     // Validate weights sum to 100
     const total = totalWeight(items);
     if (Math.abs(total - 100) > 0.01) {
-      Alert.alert(
-        "Validation Error",
-        `Weights must sum to 100%. Current total: ${total}%`,
-      );
+      toast.show(`Weights must sum to 100%. Current total: ${total}%`, {
+        type: "error",
+      });
       return;
     }
 
@@ -128,11 +136,12 @@ export default function GradeSettingsScreen() {
     );
 
     if (result.success) {
-      Alert.alert("Saved", "Grade categories updated successfully.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      toast.show("Categories saved!");
+      router.back();
     } else {
-      Alert.alert("Error", result.error ?? "Failed to save categories.");
+      toast.show(result.error ?? "Failed to save categories.", {
+        type: "error",
+      });
     }
   };
 
@@ -142,10 +151,9 @@ export default function GradeSettingsScreen() {
   if (loading && !initialized) {
     return (
       <Screen>
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <ActivityIndicator size="large" color={accent.accent} />
+        <View style={{ gap: spacing.md, padding: spacing.lg }}>
+          <SkeletonCard />
+          <SkeletonCard />
         </View>
       </Screen>
     );
@@ -158,29 +166,11 @@ export default function GradeSettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <Pressable onPress={() => router.back()}>
-            <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <ThemedText variant="heading" numberOfLines={1}>
-              Grade Settings
-            </ThemedText>
-            {classData && (
-              <ThemedText variant="small" muted>
-                {classData.name}
-              </ThemedText>
-            )}
-          </View>
-        </View>
+        <ScreenHeader
+          title="Grade Settings"
+          subtitle={classData?.name}
+          onBack={() => router.back()}
+        />
 
         {/* Explanation */}
         <View
@@ -221,8 +211,9 @@ export default function GradeSettingsScreen() {
           </View>
 
           {items.map((item) => (
-            <View
+            <Animated.View
               key={item.key}
+              layout={Layout.springify()}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
@@ -281,23 +272,13 @@ export default function GradeSettingsScreen() {
               </View>
 
               {/* Remove button */}
-              <Pressable
+              <IconButton
+                icon={Trash2}
+                color={colors.danger}
                 onPress={() => handleRemove(item.key)}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
-                  backgroundColor: colors.danger + "18",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginTop: 16,
-                }}
-              >
-                <ThemedText style={{ color: colors.danger, fontWeight: "600" }}>
-                  ✕
-                </ThemedText>
-              </Pressable>
-            </View>
+                size={18}
+              />
+            </Animated.View>
           ))}
         </View>
 

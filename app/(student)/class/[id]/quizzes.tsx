@@ -1,14 +1,25 @@
 import { router, useLocalSearchParams } from "expo-router";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
   View,
 } from "react-native";
+import { Clipboard, ClipboardList } from "lucide-react-native";
 
-import { Screen, ThemedText } from "@/components";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import {
+  Badge,
+  Card,
+  EmptyState,
+  FadeInView,
+  Screen,
+  ScreenHeader,
+  SkeletonCard,
+  ThemedText,
+} from "@/components";
+import { modeColor, radii, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { useResponsive } from "@/hooks/useResponsive";
 import { useClass, useStudentQuizStatuses } from "@/hooks/useClasses";
 import type { QuizWithStudentStatus, StudentQuizStatus } from "@/types";
 
@@ -23,46 +34,31 @@ const STATUS_LABELS: Record<StudentQuizStatus, string> = {
   graded: "Graded",
 };
 
-const STATUS_COLORS: Record<StudentQuizStatus, string> = {
-  not_started: "#94a3b8",
-  in_progress: "#2563eb",
-  submitted: "#d97706",
-  graded: "#16a34a",
-};
-
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
-
-const accent = getAccent("student");
 
 // ---------------------------------------------------------------------------
 // Quiz Card
 // ---------------------------------------------------------------------------
 
 function QuizCard({ quiz }: { quiz: QuizWithStudentStatus }) {
-  const statusColor = STATUS_COLORS[quiz.studentStatus];
+  const { colors, accent } = useTheme();
   const isAvailable =
     quiz.studentStatus === "not_started" ||
     quiz.studentStatus === "in_progress";
 
+  const statusTone = quiz.studentStatus === "graded" ? "success" : quiz.studentStatus === "submitted" ? "warning" : quiz.studentStatus === "in_progress" ? "accent" : "neutral";
+
   return (
-    <Pressable
+    <Card
       onPress={() => {
         if (!isAvailable) return;
         router.push(
           `/(student)/class/${quiz.class_id}/quizzes/${quiz.id}/take` as any,
         );
       }}
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: radii.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        padding: spacing.lg,
-        gap: spacing.sm,
-        opacity: isAvailable ? 1 : 0.7,
-      }}
+      style={{ opacity: isAvailable ? 1 : 0.7 }}
     >
       <View
         style={{
@@ -79,24 +75,11 @@ function QuizCard({ quiz }: { quiz: QuizWithStudentStatus }) {
             </ThemedText>
           ) : null}
         </View>
-        <View
-          style={{
-            backgroundColor: statusColor + "18",
-            borderRadius: radii.pill,
-            paddingHorizontal: spacing.sm,
-            paddingVertical: 2,
-          }}
-        >
-          <ThemedText
-            variant="small"
-            style={{
-              color: statusColor,
-              fontWeight: "600",
-            }}
-          >
-            {STATUS_LABELS[quiz.studentStatus]}
-          </ThemedText>
-        </View>
+        <Badge
+          label={STATUS_LABELS[quiz.studentStatus]}
+          tone={statusTone}
+          size="sm"
+        />
       </View>
 
       {/* Score display for graded/submitted */}
@@ -140,7 +123,12 @@ function QuizCard({ quiz }: { quiz: QuizWithStudentStatus }) {
           Created {formatDate(quiz.created_at)}
         </ThemedText>
         {isAvailable ? (
-          <View
+          <Pressable
+            onPress={() =>
+              router.push(
+                `/(student)/class/${quiz.class_id}/quizzes/${quiz.id}/take` as any,
+              )
+            }
             style={{
               backgroundColor: accent.accentSoft,
               borderRadius: radii.pill,
@@ -154,10 +142,10 @@ function QuizCard({ quiz }: { quiz: QuizWithStudentStatus }) {
             >
               {quiz.studentStatus === "in_progress" ? "Continue" : "Start Quiz"}
             </ThemedText>
-          </View>
+          </Pressable>
         ) : null}
       </View>
-    </Pressable>
+    </Card>
   );
 }
 
@@ -168,6 +156,8 @@ function QuizCard({ quiz }: { quiz: QuizWithStudentStatus }) {
 export default function StudentQuizzesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const classId = id ?? "";
+  const { colors, accent } = useTheme();
+  const { isTablet } = useResponsive();
   const { classData } = useClass(classId);
   const { quizzes, loading, refreshing, refresh } =
     useStudentQuizStatuses(classId);
@@ -179,25 +169,11 @@ export default function StudentQuizzesScreen() {
   const renderEmpty = () => {
     if (loading) return null;
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          paddingVertical: spacing.xxl,
-        }}
-      >
-        <ThemedText
-          variant="heading"
-          muted
-          style={{ marginBottom: spacing.sm }}
-        >
-          No quizzes yet
-        </ThemedText>
-        <ThemedText muted style={{ textAlign: "center" }}>
-          Your teacher hasn't published any quizzes for this class yet.
-        </ThemedText>
-      </View>
+      <EmptyState
+        icon={ClipboardList}
+        title="No quizzes yet"
+        message="Your teacher hasn't published any quizzes for this class yet."
+      />
     );
   };
 
@@ -205,41 +181,27 @@ export default function StudentQuizzesScreen() {
     <Screen>
       <View style={{ flex: 1 }}>
         {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <Pressable onPress={() => router.back()}>
-            <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <ThemedText variant="heading" numberOfLines={1}>
-              Quizzes
-            </ThemedText>
-            {classData && (
-              <ThemedText variant="small" muted>
-                {classData.name}
-              </ThemedText>
-            )}
-          </View>
-        </View>
+        <ScreenHeader
+          title="Quizzes"
+          subtitle={classData?.name}
+          onBack={() => router.back()}
+        />
 
         {/* Quiz list */}
         {loading && quizzes.length === 0 ? (
-          <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-          >
-            <ActivityIndicator size="large" color={accent.accent} />
-          </View>
+          <FadeInView>
+            <View style={{ gap: spacing.md }}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
+          </FadeInView>
         ) : (
           <FlatList
             data={quizzes}
             keyExtractor={(item) => item.id}
+            key={isTablet ? "grid" : "list"}
+            numColumns={isTablet ? 2 : undefined}
             renderItem={renderQuiz}
             ListEmptyComponent={renderEmpty}
             contentContainerStyle={{
@@ -247,6 +209,7 @@ export default function StudentQuizzesScreen() {
               paddingBottom: spacing.lg,
               flexGrow: 1,
             }}
+            columnWrapperStyle={isTablet ? { gap: spacing.md } : undefined}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}

@@ -1,13 +1,21 @@
 import { useRouter } from "expo-router";
 import {
-  ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   View,
 } from "react-native";
+import { Clipboard, ClipboardList } from "lucide-react-native";
 
-import { Screen, ThemedText } from "@/components";
+import {
+  Card,
+  EmptyState,
+  FadeInView,
+  Screen,
+  ScreenHeader,
+  ScaleInView,
+  SkeletonCard,
+  ThemedText,
+} from "@/components";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
 import { useStudentFinalGrades } from "@/hooks/useGradeEngine";
 import type { CategoryBreakdown, FinalGrade } from "@/types";
@@ -90,16 +98,7 @@ function ClassGradeSection({
   const gradeColor = letterColor(grade.letterGrade);
 
   return (
-    <View
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: radii.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        padding: spacing.lg,
-        gap: spacing.md,
-      }}
-    >
+    <Card variant="flat">
       {/* Class header */}
       <View
         style={{
@@ -117,28 +116,30 @@ function ClassGradeSection({
             {grade.categoryBreakdown.length === 1 ? "category" : "categories"}
           </ThemedText>
         </View>
-        <View
-          style={{
-            backgroundColor: gradeColor + "18",
-            borderRadius: radii.md,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm,
-            alignItems: "center",
-          }}
-        >
-          <ThemedText
-            variant="title"
-            style={{ color: gradeColor, fontWeight: "700" }}
+        <ScaleInView>
+          <View
+            style={{
+              backgroundColor: gradeColor + "18",
+              borderRadius: radii.md,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              alignItems: "center",
+            }}
           >
-            {grade.finalPercentage}%
-          </ThemedText>
-          <ThemedText
-            variant="display"
-            style={{ color: gradeColor, fontWeight: "800" }}
-          >
-            {grade.letterGrade}
-          </ThemedText>
-        </View>
+            <ThemedText
+              variant="title"
+              style={{ color: gradeColor, fontWeight: "700" }}
+            >
+              {grade.finalPercentage}%
+            </ThemedText>
+            <ThemedText
+              variant="display"
+              style={{ color: gradeColor, fontWeight: "800" }}
+            >
+              {grade.letterGrade}
+            </ThemedText>
+          </View>
+        </ScaleInView>
       </View>
 
       {/* Category breakdowns */}
@@ -147,7 +148,7 @@ function ClassGradeSection({
           <CategoryRow key={cat.categoryName} breakdown={cat} />
         ))}
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -170,26 +171,11 @@ export default function GradesScreen() {
   const renderEmpty = () => {
     if (loading) return null;
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          paddingVertical: spacing.xxl,
-        }}
-      >
-        <ThemedText
-          variant="heading"
-          muted
-          style={{ marginBottom: spacing.sm }}
-        >
-          No grades yet
-        </ThemedText>
-        <ThemedText muted style={{ textAlign: "center" }}>
-          Your weighted grades will appear here once your teacher sets up grade
-          categories and grades your work.
-        </ThemedText>
-      </View>
+      <EmptyState
+        icon={ClipboardList}
+        title="No grades yet"
+        message="Your weighted grades will appear here once your teacher sets up grade categories and grades your work."
+      />
     );
   };
 
@@ -197,34 +183,20 @@ export default function GradesScreen() {
     <Screen>
       <View style={{ flex: 1 }}>
         {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <Pressable onPress={() => router.back()}>
-            <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <ThemedText variant="display">Grades</ThemedText>
-            <ThemedText muted>
-              {finalGrades.length}{" "}
-              {finalGrades.length === 1 ? "class" : "classes"}
-            </ThemedText>
-          </View>
-        </View>
+        <ScreenHeader
+          title="Grades"
+          subtitle={`${finalGrades.length} ${finalGrades.length === 1 ? "class" : "classes"}`}
+          onBack={() => router.back()}
+        />
 
         {/* Grade sections */}
         {loading && finalGrades.length === 0 ? (
-          <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-          >
-            <ActivityIndicator size="large" color={accent.accent} />
-          </View>
+          <FadeInView>
+            <View style={{ gap: spacing.md }}>
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
+          </FadeInView>
         ) : (
           <FlatList
             data={finalGrades}

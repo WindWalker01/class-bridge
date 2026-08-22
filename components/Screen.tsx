@@ -2,6 +2,9 @@ import type { PropsWithChildren } from "react";
 import { View, type ViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+
 type ScreenProps = PropsWithChildren<{
   /** Uses a safe-area container by default; disable for nested screens. */
   safeArea?: boolean;
@@ -18,8 +21,15 @@ export function Screen({
   children,
   ...rest
 }: ScreenProps) {
+  const { colors } = useTheme();
   const content = (
-    <View className="flex-1 bg-white px-5" style={style} {...rest}>
+    <View
+      style={[
+        { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.md },
+        style,
+      ]}
+      {...rest}
+    >
       {children}
     </View>
   );
@@ -27,7 +37,10 @@ export function Screen({
   if (!safeArea) return content;
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top", "left", "right"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={["top", "left", "right"]}
+    >
       {content}
     </SafeAreaView>
   );

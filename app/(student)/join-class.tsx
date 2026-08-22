@@ -1,18 +1,23 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, View } from "react-native";
 
-import { Button, Screen, TextField, ThemedText } from "@/components";
+import {
+  Button,
+  Card,
+  FadeInView,
+  Screen,
+  ScreenHeader,
+  TextField,
+  ThemedText,
+  useToast,
+} from "@/components";
+import { Avatar } from "@/components/Avatar";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
 import { Routes } from "@/lib/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
+import { haptics } from "@/lib/haptics";
 import type { Class } from "@/types";
 
 type LookupState =
@@ -25,6 +30,7 @@ export default function JoinClassScreen() {
   const accent = getAccent("student");
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const { show } = useToast();
 
   const [code, setCode] = useState("");
   const [lookup, setLookup] = useState<LookupState>({ stage: "idle" });
@@ -43,9 +49,9 @@ export default function JoinClassScreen() {
       .single();
 
     if (error || !data) {
-      setLookup({
-        stage: "error",
-        message: "Invalid class code. Please check and try again.",
+      setLookup({ stage: "idle" });
+      show("Invalid class code. Please check and try again.", {
+        type: "error",
       });
       return;
     }
@@ -63,6 +69,7 @@ export default function JoinClassScreen() {
   const handleJoin = async () => {
     if (lookup.stage !== "found" || !user) return;
     setJoining(true);
+    haptics.medium();
 
     const { error } = await supabase.from("class_members").insert({
       class_id: lookup.classData.id,
@@ -74,12 +81,9 @@ export default function JoinClassScreen() {
     if (error) {
       // Check for unique constraint violation (already joined)
       if (error.code === "23505") {
-        setLookup({
-          stage: "error",
-          message: "You've already joined this class.",
-        });
+        show("You've already joined this class.", { type: "error" });
       } else {
-        setLookup({ stage: "error", message: error.message });
+        show(error.message, { type: "error" });
       }
       return;
     }
@@ -101,19 +105,10 @@ export default function JoinClassScreen() {
       >
         <View style={{ flex: 1, gap: spacing.lg }}>
           {/* Header */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: spacing.md,
-              paddingTop: spacing.lg,
-            }}
-          >
-            <Pressable onPress={() => router.back()}>
-              <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-            </Pressable>
-            <ThemedText variant="display">Join a Class</ThemedText>
-          </View>
+          <ScreenHeader
+            title="Join a Class"
+            onBack={() => router.back()}
+          />
 
           <ThemedText muted>
             Enter the class code provided by your teacher to join their class.
@@ -121,161 +116,142 @@ export default function JoinClassScreen() {
 
           {/* Code input */}
           {lookup.stage !== "found" && (
-            <View style={{ gap: spacing.md }}>
-              <TextField
-                label="Class Code"
-                placeholder="e.g. ABC123"
-                value={code}
-                onChangeText={(text) => {
-                  setCode(text.toUpperCase());
-                  if (lookup.stage === "error") setLookup({ stage: "idle" });
-                }}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                error={lookup.stage === "error" ? lookup.message : undefined}
-              />
-              <Button
-                label="Find Class"
-                fullWidth
-                loading={lookup.stage === "loading"}
-                onPress={handleLookup}
-                disabled={!code.trim()}
-              />
-            </View>
+            <FadeInView key="input">
+              <View style={{ gap: spacing.md }}>
+                <TextField
+                  label="Class Code"
+                  placeholder="e.g. ABC123"
+                  value={code}
+                  onChangeText={(text) => {
+                    setCode(text.toUpperCase());
+                    if (lookup.stage === "error") setLookup({ stage: "idle" });
+                  }}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+                <Button
+                  label="Find Class"
+                  fullWidth
+                  loading={lookup.stage === "loading"}
+                  onPress={handleLookup}
+                  disabled={!code.trim()}
+                />
+              </View>
+            </FadeInView>
           )}
 
           {/* Loading */}
           {lookup.stage === "loading" && (
-            <View style={{ alignItems: "center", paddingVertical: spacing.xl }}>
-              <ActivityIndicator size="large" color={accent.accent} />
-              <ThemedText muted style={{ marginTop: spacing.md }}>
-                Looking up class...
-              </ThemedText>
-            </View>
+            <FadeInView key="loading">
+              <View style={{ alignItems: "center", paddingVertical: spacing.xl }}>
+                <ThemedText muted style={{ marginTop: spacing.md }}>
+                  Looking up class...
+                </ThemedText>
+              </View>
+            </FadeInView>
           )}
 
           {/* Confirmation card */}
           {lookup.stage === "found" && (
-            <View style={{ gap: spacing.lg }}>
-              <View
-                style={{
-                  backgroundColor: colors.surface,
-                  borderRadius: radii.lg,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  padding: spacing.lg,
-                  gap: spacing.md,
-                }}
-              >
-                <View
-                  style={{
-                    alignSelf: "flex-start",
-                    backgroundColor: accent.accentSoft,
-                    borderRadius: radii.pill,
-                    paddingHorizontal: spacing.md,
-                    paddingVertical: spacing.xs,
-                  }}
-                >
-                  <ThemedText
-                    variant="small"
-                    style={{ color: accent.accentText, fontWeight: "600" }}
-                  >
-                    Class Found
-                  </ThemedText>
-                </View>
-
-                <View style={{ gap: spacing.xs }}>
-                  <ThemedText variant="heading">
-                    {lookup.classData.name}
-                  </ThemedText>
-                  <ThemedText variant="caption" muted>
-                    {lookup.classData.subject}
-                    {lookup.classData.section
-                      ? ` · ${lookup.classData.section}`
-                      : ""}
-                  </ThemedText>
-                </View>
-
-                {lookup.classData.teacher_name && (
+            <FadeInView key="found">
+              <View style={{ gap: spacing.lg }}>
+                <Card variant="elevated">
                   <View
                     style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: spacing.sm,
+                      alignSelf: "flex-start",
+                      backgroundColor: accent.accentSoft,
+                      borderRadius: radii.pill,
+                      paddingHorizontal: spacing.md,
+                      paddingVertical: spacing.xs,
                     }}
                   >
-                    <View
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 14,
-                        backgroundColor: accent.accentMuted,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                    <ThemedText
+                      variant="small"
+                      style={{ color: accent.accentText, fontWeight: "600" }}
                     >
-                      <ThemedText
-                        variant="small"
-                        style={{
-                          color: accent.accentText,
-                          fontWeight: "600",
-                        }}
-                      >
-                        {lookup.classData.teacher_name.charAt(0).toUpperCase()}
-                      </ThemedText>
-                    </View>
-                    <ThemedText variant="caption" muted>
-                      {lookup.classData.teacher_name}
+                      Class Found
                     </ThemedText>
                   </View>
-                )}
 
-                <View
-                  style={{
-                    backgroundColor: colors.surfaceMuted,
-                    borderRadius: radii.sm,
-                    padding: spacing.md,
-                    alignItems: "center",
-                  }}
-                >
-                  <ThemedText variant="small" muted>
-                    Class Code
-                  </ThemedText>
-                  <ThemedText
-                    variant="heading"
-                    style={{ letterSpacing: 2, marginTop: spacing.xs }}
+                  <View style={{ gap: spacing.xs }}>
+                    <ThemedText variant="heading">
+                      {lookup.classData.name}
+                    </ThemedText>
+                    <ThemedText variant="caption" muted>
+                      {lookup.classData.subject}
+                      {lookup.classData.section
+                        ? ` · ${lookup.classData.section}`
+                        : ""}
+                    </ThemedText>
+                  </View>
+
+                  {lookup.classData.teacher_name && (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: spacing.sm,
+                      }}
+                    >
+                      <Avatar
+                        name={lookup.classData.teacher_name}
+                        size={28}
+                      />
+                      <ThemedText variant="caption" muted>
+                        {lookup.classData.teacher_name}
+                      </ThemedText>
+                    </View>
+                  )}
+
+                  <View
+                    style={{
+                      backgroundColor: colors.surfaceMuted,
+                      borderRadius: radii.sm,
+                      padding: spacing.md,
+                      alignItems: "center",
+                    }}
                   >
-                    {lookup.classData.class_code}
-                  </ThemedText>
+                    <ThemedText variant="small" muted>
+                      Class Code
+                    </ThemedText>
+                    <ThemedText
+                      variant="heading"
+                      style={{ letterSpacing: 2, marginTop: spacing.xs }}
+                    >
+                      {lookup.classData.class_code}
+                    </ThemedText>
+                  </View>
+                </Card>
+
+                <View style={{ flexDirection: "row", gap: spacing.md }}>
+                  <Button
+                    label="Cancel"
+                    variant="ghost"
+                    fullWidth
+                    onPress={handleReset}
+                  />
+                  <Button
+                    label="Join Class"
+                    fullWidth
+                    loading={joining}
+                    onPress={handleJoin}
+                  />
                 </View>
               </View>
-
-              <View style={{ flexDirection: "row", gap: spacing.md }}>
-                <Button
-                  label="Cancel"
-                  variant="ghost"
-                  fullWidth
-                  onPress={handleReset}
-                />
-                <Button
-                  label="Join Class"
-                  fullWidth
-                  loading={joining}
-                  onPress={handleJoin}
-                />
-              </View>
-            </View>
+            </FadeInView>
           )}
 
           {/* Error with retry */}
           {lookup.stage === "error" && (
-            <View style={{ alignItems: "center", gap: spacing.md }}>
-              <Button
-                label="Try Again"
-                variant="secondary"
-                onPress={handleReset}
-              />
-            </View>
+            <FadeInView key="error">
+              <View style={{ alignItems: "center", gap: spacing.md }}>
+                <Button
+                  label="Try Again"
+                  variant="secondary"
+                  onPress={handleReset}
+                />
+              </View>
+            </FadeInView>
           )}
         </View>
       </KeyboardAvoidingView>

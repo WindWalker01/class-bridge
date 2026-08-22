@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { View } from "react-native";
 import Animated, {
+  Layout,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -255,7 +256,11 @@ function DraggableItem({
 
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View onLayout={onLayout} style={animatedStyle}>
+      <Animated.View
+        onLayout={onLayout}
+        style={animatedStyle}
+        layout={Layout.springify()}
+      >
         {children}
       </Animated.View>
     </GestureDetector>

@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -9,7 +8,16 @@ import {
   View,
 } from "react-native";
 
-import { Button, Screen, ThemedText } from "@/components";
+import {
+  Badge,
+  Button,
+  Card,
+  Screen,
+  ScreenHeader,
+  SkeletonCard,
+  ThemedText,
+  useToast,
+} from "@/components";
 import {
   colors,
   getAccent,
@@ -88,6 +96,7 @@ export default function GradebookScreen() {
   const { upsert, saving: upserting } = useUpsertGrade();
   const { create: createItem, creating } = useCreateManualGradedItem();
   const { remove: deleteItem, deleting } = useDeleteGradedItem();
+  const toast = useToast();
 
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
@@ -182,8 +191,9 @@ export default function GradebookScreen() {
       if (result.success) {
         void refreshGrades();
         void refreshFinals();
+        toast.show("Grade saved");
       } else {
-        Alert.alert("Error", result.error ?? "Failed to save grade.");
+        toast.show(result.error ?? "Failed to save grade.", { type: "error" });
       }
     },
     [upsert, refreshGrades, refreshFinals],
@@ -254,10 +264,10 @@ export default function GradebookScreen() {
   if (loading) {
     return (
       <Screen>
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <ActivityIndicator size="large" color={accent.accent} />
+        <View style={{ gap: spacing.md, padding: spacing.lg }}>
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </View>
       </Screen>
     );
@@ -267,28 +277,22 @@ export default function GradebookScreen() {
     <Screen>
       <View style={{ flex: 1 }}>
         {/* Header */}
+        <ScreenHeader
+          title="Gradebook"
+          subtitle={classData?.name}
+          onBack={() => router.back()}
+        />
+
+        {/* Settings & Summary */}
         <View
           style={{
             flexDirection: "row",
+            justifyContent: "space-between",
             alignItems: "center",
-            gap: spacing.md,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.md,
+            marginBottom: spacing.md,
           }}
         >
-          <Pressable onPress={() => router.back()}>
-            <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <ThemedText variant="heading" numberOfLines={1}>
-              Gradebook
-            </ThemedText>
-            {classData && (
-              <ThemedText variant="small" muted>
-                {classData.name}
-              </ThemedText>
-            )}
-          </View>
+          <ThemedText variant="title">Overview</ThemedText>
           <Pressable
             onPress={() =>
               router.push(`/(teacher)/class/${classId}/grade-settings` as any)

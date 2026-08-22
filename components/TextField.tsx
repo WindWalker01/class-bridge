@@ -1,4 +1,4 @@
-import {
+﻿import {
   Text,
   TextInput,
   View,
@@ -7,7 +7,8 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { colors, radii, spacing, typography } from "@/constants/theme";
+import { radii, spacing, typography } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 type TextFieldProps = TextInputProps & {
   label?: string;
@@ -26,6 +27,7 @@ export function TextField({
   style,
   ...rest
 }: TextFieldProps) {
+  const { colors } = useTheme();
   return (
     <View style={[{ gap: spacing.xs }, containerStyle]}>
       {label ? (

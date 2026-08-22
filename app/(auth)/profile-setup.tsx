@@ -1,10 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useForm } from "react-hook-form";
-import { View } from "react-native";
+import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { z } from "zod";
 
-import { Button, Screen, TextField, ThemedText } from "@/components";
+import { Button, FadeInUp, Screen, TextField, ThemedText, useToast } from "@/components";
 import { spacing } from "@/constants/theme";
 import { Routes } from "@/lib/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -17,6 +17,7 @@ type ProfileForm = z.infer<typeof profileSchema>;
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
+  const { show } = useToast();
   const updateProfile = useAuthStore((state) => state.updateProfile);
 
   const {
@@ -31,6 +32,8 @@ export default function ProfileSetupScreen() {
   const onSubmit = async (form: ProfileForm) => {
     await updateProfile({ full_name: form.fullName, onboarded: true });
 
+    show("Profile saved!", { type: "success" });
+
     const role = useAuthStore.getState().profile?.role;
     if (role === "teacher") {
       router.replace(Routes.teacher);
@@ -43,30 +46,39 @@ export default function ProfileSetupScreen() {
 
   return (
     <Screen>
-      <View style={{ flex: 1, justifyContent: "center", gap: spacing.md }}>
-        <ThemedText variant="title">Set up your profile</ThemedText>
-        <ThemedText muted>
-          Tell us a bit about yourself so your dashboard feels like home.
-        </ThemedText>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={{ flex: 1, justifyContent: "center" }}>
+          <FadeInUp>
+            <View style={{ gap: spacing.md }}>
+              <ThemedText variant="title">Set up your profile</ThemedText>
+              <ThemedText muted>
+                Tell us a bit about yourself so your dashboard feels like home.
+              </ThemedText>
 
-        <TextField
-          label="Full name"
-          placeholder="Jane Doe"
-          autoCapitalize="words"
-          error={errors.fullName?.message}
-          onChangeText={(text) =>
-            setValue("fullName", text, { shouldValidate: true })
-          }
-        />
+              <TextField
+                label="Full name"
+                placeholder="Jane Doe"
+                autoCapitalize="words"
+                error={errors.fullName?.message}
+                onChangeText={(text) =>
+                  setValue("fullName", text, { shouldValidate: true })
+                }
+              />
 
-        <Button
-          label="Save & continue"
-          fullWidth
-          loading={isSubmitting}
-          disabled={!isValid}
-          onPress={() => void handleSubmit(onSubmit)()}
-        />
-      </View>
+              <Button
+                label="Save & continue"
+                fullWidth
+                loading={isSubmitting}
+                disabled={!isValid}
+                onPress={() => void handleSubmit(onSubmit)()}
+              />
+            </View>
+          </FadeInUp>
+        </View>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

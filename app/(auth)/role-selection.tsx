@@ -1,11 +1,17 @@
 import { useRouter } from "expo-router";
+import { FileText, GraduationCap, Presentation } from "lucide-react-native";
 import { View } from "react-native";
 
-import { Button, Screen, ThemedText } from "@/components";
-import { roleAccents, spacing } from "@/constants/theme";
+import { Card, FadeInUp, Screen, ThemedText } from "@/components";
+import { colors, radii, roleAccents, spacing } from "@/constants/theme";
 import { Routes } from "@/lib/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { Role } from "@/types";
+
+const ROLE_ICONS: Record<Role, typeof GraduationCap> = {
+  teacher: Presentation,
+  student: GraduationCap,
+};
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
@@ -18,19 +24,56 @@ export default function RoleSelectionScreen() {
 
   return (
     <Screen>
-      <View style={{ flex: 1, justifyContent: "center", gap: spacing.md }}>
-        <ThemedText variant="title">Choose your role</ThemedText>
-        <ThemedText muted>Are you a teacher or a student?</ThemedText>
+      <FadeInUp>
+        <View style={{ flex: 1, justifyContent: "center", gap: spacing.md }}>
+          <ThemedText variant="title">Choose your role</ThemedText>
+          <ThemedText muted>Are you a teacher or a student?</ThemedText>
 
-        {(Object.keys(roleAccents) as Role[]).map((role) => (
-          <Button
-            key={role}
-            label={`Continue as ${roleAccents[role].label}`}
-            fullWidth
-            onPress={() => void handleSelect(role)}
-          />
-        ))}
-      </View>
+          {(Object.keys(roleAccents) as Role[]).map((role) => {
+            const accent = roleAccents[role];
+            const Icon = ROLE_ICONS[role];
+            return (
+              <Card
+                key={role}
+                variant="elevated"
+                onPress={() => void handleSelect(role)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing.lg,
+                  backgroundColor: colors.white,
+                }}
+              >
+                <View
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 26,
+                    backgroundColor: accent.accentSoft,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon size={28} color={accent.accent} strokeWidth={1.5} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText
+                    variant="heading"
+                    style={{ color: accent.accentText }}
+                  >
+                    {accent.label}
+                  </ThemedText>
+                  <ThemedText variant="caption" muted>
+                    {role === "teacher"
+                      ? "Create classes, quizzes, and grade your students."
+                      : "Join classes, take quizzes, and track your grades."}
+                  </ThemedText>
+                </View>
+              </Card>
+            );
+          })}
+        </View>
+      </FadeInUp>
     </Screen>
   );
 }

@@ -1,6 +1,7 @@
 import { Text, type TextProps } from "react-native";
 
-import { colors, typography } from "@/constants/theme";
+import { typography } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 type Variant = keyof typeof typography;
 
@@ -20,6 +21,7 @@ export function ThemedText({
   style,
   ...rest
 }: ThemedTextProps) {
+  const { colors } = useTheme();
   const variantStyle = typography[variant];
 
   return (

@@ -9,6 +9,8 @@ interface AuthState {
   profile: Profile | null;
   /** True while a profile fetch is in flight (e.g. right after sign-in). */
   profileLoading: boolean;
+  /** Guards against concurrent fetchProfile calls. */
+  isFetchingProfile: boolean;
   loading: boolean;
   hasInitialized: boolean;
 
@@ -42,6 +44,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   profileLoading: false,
   loading: true,
   hasInitialized: false,
+  isFetchingProfile: false,
 
   initialize: async () => {
     try {
@@ -64,7 +67,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   fetchProfile: async (userId: string) => {
-    set({ profileLoading: true });
+    // Guard: prevent concurrent profile fetches
+    if (get().isFetchingProfile) return;
+    set({ profileLoading: true, isFetchingProfile: true });
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -73,15 +78,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .single();
 
       if (error) {
+        // Rate-limit errors shouldn't clear the session — the session is
+        // still valid, only the profile fetch failed temporarily.
+        if (error.code === "429" || error.message?.includes("rate limit")) {
+          console.warn(
+            "[class-bridge] Profile fetch rate-limited — keeping current profile",
+          );
+          set({ profileLoading: false, isFetchingProfile: false });
+          return;
+        }
+
         console.error("[class-bridge] Failed to fetch profile", error);
-        set({ profile: null, profileLoading: false });
+        set({ profile: null, profileLoading: false, isFetchingProfile: false });
         return;
       }
 
-      set({ profile: data as Profile, profileLoading: false });
+      set({ profile: data as Profile, profileLoading: false, isFetchingProfile: false });
     } catch (error) {
       console.error("[class-bridge] Failed to fetch profile", error);
-      set({ profile: null, profileLoading: false });
+      set({ profile: null, profileLoading: false, isFetchingProfile: false });
     }
   },
 
@@ -125,11 +140,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (session?.user) {
       void get().fetchProfile(session.user.id);
     } else {
-      set({ profile: null });
+      set({ profile: null, isFetchingProfile: false });
     }
   },
 
   reset: () => {
-    set({ session: null, user: null, profile: null, profileLoading: false });
+    set({ session: null, user: null, profile: null, profileLoading: false, isFetchingProfile: false });
   },
 }));

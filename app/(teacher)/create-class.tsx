@@ -1,9 +1,11 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 
-import { Button, Screen, TextField, ThemedText } from "@/components";
-import { getAccent, spacing } from "@/constants/theme";
+import { Button, Screen, ScreenHeader, TextField, ThemedText, useToast } from "@/components";
+import { spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { useResponsive } from "@/hooks/useResponsive";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -18,7 +20,9 @@ function generateClassCode(): string {
 }
 
 export default function CreateClassScreen() {
-  const accent = getAccent("teacher");
+  const { colors, accent } = useTheme();
+  const { isTablet } = useResponsive();
+  const { show } = useToast();
   const user = useAuthStore((state) => state.user);
 
   const [name, setName] = useState("");
@@ -60,7 +64,6 @@ export default function CreateClassScreen() {
     setLoading(false);
 
     if (error) {
-      // If code collision (extremely unlikely), retry once
       if (error.code === "23505") {
         const retryCode = generateClassCode();
         setLoading(true);
@@ -78,7 +81,7 @@ export default function CreateClassScreen() {
         setLoading(false);
 
         if (retryError) {
-          Alert.alert("Error", "Failed to create class. Please try again.");
+          show("Failed to create class. Please try again.", { type: "error" });
           return;
         }
 
@@ -86,7 +89,7 @@ export default function CreateClassScreen() {
         return;
       }
 
-      Alert.alert("Error", error.message || "Failed to create class.");
+      show(error.message || "Failed to create class.", { type: "error" });
       return;
     }
 
@@ -94,40 +97,25 @@ export default function CreateClassScreen() {
   };
 
   const showSuccess = (classCode: string) => {
-    Alert.alert(
-      "Class Created!",
-      `Share this code with your students so they can join:\n\n${classCode}`,
-      [
-        {
-          text: "Copy Code",
-          onPress: async () => {
-            try {
-              const Clipboard = require("expo-clipboard");
-              await Clipboard.setStringAsync(classCode);
-              Alert.alert("Copied", "Class code copied to clipboard!");
-            } catch {
-              // Clipboard not available — ignore
-            }
-          },
-        },
-        {
-          text: "Done",
-          onPress: () => router.back(),
-        },
-      ],
-    );
+    show(`Class created! Code: ${classCode}`, { type: "success" });
+    // Attempt clipboard copy silently
+    try {
+      const Clipboard = require("expo-clipboard");
+      Clipboard.setStringAsync(classCode);
+    } catch {
+      // Clipboard not available
+    }
+    router.back();
   };
 
   return (
     <Screen>
-      <View style={{ flex: 1, paddingTop: spacing.lg }}>
-        {/* Header */}
-        <View style={{ marginBottom: spacing.xl }}>
-          <ThemedText variant="display">Create Class</ThemedText>
-          <ThemedText muted>Set up a new class for your students.</ThemedText>
-        </View>
+      <ScreenHeader title="Create Class" onBack={() => router.back()} />
+      <View style={{ flex: 1, paddingTop: spacing.lg, maxWidth: isTablet ? 520 : undefined, alignSelf: isTablet ? "center" : undefined, width: "100%" }}>
+        <ThemedText muted style={{ marginBottom: spacing.xl }}>
+          Set up a new class for your students.
+        </ThemedText>
 
-        {/* Form */}
         <View style={{ gap: spacing.lg }}>
           <TextField
             label="Class Name"
@@ -166,7 +154,6 @@ export default function CreateClassScreen() {
           />
         </View>
 
-        {/* Actions */}
         <View style={{ marginTop: spacing.xl, gap: spacing.md }}>
           <Button
             label="Create Class"

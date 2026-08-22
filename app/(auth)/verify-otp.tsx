@@ -1,26 +1,102 @@
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   TextInput,
   View,
   type NativeSyntheticEvent,
   type TextInputKeyPressEventData,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
-import { Button, Screen, ThemedText } from "@/components";
+import {
+  Badge,
+  Button,
+  FadeInUp,
+  Screen,
+  ThemedText,
+  useToast,
+} from "@/components";
 import { colors, radii, spacing } from "@/constants/theme";
+import { haptics } from "@/lib/haptics";
 import { Routes } from "@/lib/navigation";
 import { supabase } from "@/lib/supabase";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60; // seconds
 
+// ---------------------------------------------------------------------------
+// Animated OTP Cell
+// ---------------------------------------------------------------------------
+
+function OtpCell({
+  value,
+  onChangeText,
+  onKeyPress,
+  inputRef,
+  autoFocus,
+}: {
+  value: string;
+  onChangeText: (text: string) => void;
+  onKeyPress: (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => void;
+  inputRef: (ref: TextInput | null) => void;
+  autoFocus?: boolean;
+}) {
+  const filled = useSharedValue(value ? 1 : 0);
+
+  useEffect(() => {
+    filled.value = withTiming(value ? 1 : 0, { duration: 200 });
+  }, [value, filled]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    borderColor: withTiming(
+      filled.value === 1 ? colors.primary : colors.border,
+      { duration: 200 },
+    ),
+    backgroundColor: withTiming(
+      filled.value === 1 ? colors.primaryMuted : "transparent",
+      { duration: 200 },
+    ),
+  }));
+
+  return (
+    <Animated.View style={[{ borderRadius: radii.md, overflow: "hidden" }, animatedStyle]}>
+      <TextInput
+        ref={inputRef}
+        value={value}
+        onChangeText={onChangeText}
+        onKeyPress={onKeyPress}
+        keyboardType="number-pad"
+        textContentType="oneTimeCode"
+        maxLength={1}
+        selectTextOnFocus
+        autoFocus={autoFocus}
+        style={{
+          width: 48,
+          height: 56,
+          borderWidth: 2,
+          borderRadius: radii.md,
+          textAlign: "center",
+          fontSize: 24,
+          fontWeight: "700",
+          color: colors.text,
+        }}
+      />
+    </Animated.View>
+  );
+}
+
 export default function VerifyOtpScreen() {
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
+  const { show } = useToast();
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
-  const [serverError, setServerError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resending, setResending] = useState(false);
@@ -46,7 +122,6 @@ export default function VerifyOtpScreen() {
     const newOtp = [...otp];
     newOtp[index] = digit;
     setOtp(newOtp);
-    setServerError(null);
     if (digit && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -67,31 +142,35 @@ export default function VerifyOtpScreen() {
   const handleVerify = async () => {
     if (!isOtpComplete || !email) return;
     setVerifying(true);
-    setServerError(null);
+
     const token = otp.join("");
     const { error } = await supabase.auth.verifyOtp({
       email,
       token,
       type: "recovery",
     });
+
     if (error) {
-      setServerError(error.message);
+      show(error.message, { type: "error" });
       setVerifying(false);
       return;
     }
+
+    haptics.success();
     router.replace(Routes.resetPassword);
   };
 
   const handleResend = async () => {
     if (!email || resendCooldown > 0) return;
     setResending(true);
-    setServerError(null);
+
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) {
-      setServerError(error.message);
+      show(error.message, { type: "error" });
       setResending(false);
       return;
     }
+
     setOtp(Array(OTP_LENGTH).fill(""));
     setResendCooldown(RESEND_COOLDOWN);
     setResending(false);
@@ -118,96 +197,81 @@ export default function VerifyOtpScreen() {
 
   return (
     <Screen>
-      <View style={{ flex: 1, justifyContent: "center", gap: spacing.lg }}>
-        <View style={{ gap: spacing.sm }}>
-          <ThemedText variant="title">Check your email</ThemedText>
-          <ThemedText muted>
-            We sent a 6-digit code to{" "}
-            <ThemedText style={{ fontWeight: "600" }}>{email}</ThemedText>.
-            Enter it below to reset your password.
-          </ThemedText>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={{ flex: 1, justifyContent: "center" }}>
+          <FadeInUp>
+            <View style={{ gap: spacing.lg }}>
+              <View style={{ gap: spacing.sm }}>
+                <ThemedText variant="title">Check your email</ThemedText>
+                <ThemedText muted>
+                  We sent a 6-digit code to{" "}
+                  <ThemedText style={{ fontWeight: "600" }}>{email}</ThemedText>.
+                  Enter it below to reset your password.
+                </ThemedText>
+              </View>
+
+              {/* OTP Input Row */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: spacing.sm,
+                  justifyContent: "center",
+                }}
+              >
+                {Array.from({ length: OTP_LENGTH }).map((_, index) => (
+                  <OtpCell
+                    key={index}
+                    value={otp[index]}
+                    inputRef={(ref) => {
+                      inputRefs.current[index] = ref;
+                    }}
+                    onChangeText={(text) => handleChange(text, index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    autoFocus={index === 0}
+                  />
+                ))}
+              </View>
+
+              <Button
+                label="Verify code"
+                fullWidth
+                loading={verifying}
+                disabled={!isOtpComplete || verifying}
+                onPress={() => void handleVerify()}
+              />
+
+              {/* Resend section */}
+              <View style={{ alignItems: "center", gap: spacing.sm }}>
+                <ThemedText muted>Didn't receive the code?</ThemedText>
+                {resendCooldown > 0 ? (
+                  <Badge
+                    label={`Resend available in ${resendCooldown}s`}
+                    tone="neutral"
+                    size="sm"
+                  />
+                ) : (
+                  <Button
+                    variant="ghost"
+                    label="Resend code"
+                    loading={resending}
+                    disabled={resending}
+                    onPress={() => void handleResend()}
+                  />
+                )}
+              </View>
+
+              <Button
+                variant="ghost"
+                label="Back to sign in"
+                onPress={() => router.replace(Routes.signIn)}
+              />
+            </View>
+          </FadeInUp>
         </View>
-{serverError ? (
-          <ThemedText style={{ color: colors.danger }}>{serverError}</ThemedText>
-        ) : null}
-
-        {/* OTP Input Row */}
-        <View
-          style={{
-            flexDirection: "row",
-            gap: spacing.sm,
-            justifyContent: "center",
-          }}
-        >
-          {Array.from({ length: OTP_LENGTH }).map((_, index) => (
-            <TextInput
-              key={index}
-              ref={(ref) => {
-                inputRefs.current[index] = ref;
-              }}
-              value={otp[index]}
-              onChangeText={(text) => handleChange(text, index)}
-              onKeyPress={(e) => handleKeyPress(e, index)}
-              keyboardType="number-pad"
-              textContentType="oneTimeCode"
-              maxLength={1}
-              selectTextOnFocus
-              style={{
-                width: 48,
-                height: 56,
-                borderWidth: 2,
-                borderColor: otp[index] ? colors.primary : colors.border,
-                borderRadius: radii.md,
-                textAlign: "center",
-                fontSize: 24,
-                fontWeight: "700",
-                color: colors.text,
-                backgroundColor: otp[index]
-                  ? colors.primaryMuted
-                  : "transparent",
-              }}
-            />
-          ))}
-        </View>
-
-        <Button
-          label="Verify code"
-          fullWidth
-          loading={verifying}
-          disabled={!isOtpComplete || verifying}
-          onPress={() => void handleVerify()}
-        />
-
-        {/* Resend section */}
-        <View style={{ alignItems: "center", gap: spacing.sm }}>
-          <ThemedText muted>Didn't receive the code?</ThemedText>
-          {resendCooldown > 0 ? (
-            <ThemedText
-              style={{
-                color: colors.textMuted,
-                fontSize: 12,
-                lineHeight: 16,
-              }}
-            >
-              Resend available in {resendCooldown}s
-            </ThemedText>
-          ) : (
-            <Button
-              variant="ghost"
-              label="Resend code"
-              loading={resending}
-              disabled={resending}
-              onPress={() => void handleResend()}
-            />
-          )}
-        </View>
-
-        <Button
-          variant="ghost"
-          label="Back to sign in"
-          onPress={() => router.replace(Routes.signIn)}
-        />
-      </View>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

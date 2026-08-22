@@ -1,6 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -9,8 +8,21 @@ import {
   View,
 } from "react-native";
 
-import { Screen, ThemedText } from "@/components";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import {
+  AnimatedListItem,
+  Avatar,
+  Badge,
+  Card,
+  EmptyState,
+  FadeInView,
+  Screen,
+  ScreenHeader,
+  SkeletonCard,
+  ThemedText,
+} from "@/components";
+import { BookOpen, Clipboard, FileText, CheckSquare } from "lucide-react-native";
+import { modeColor, radii, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { useClass, useClassFeed } from "@/hooks/useClasses";
 import { Routes } from "@/lib/navigation";
 import type { Attachment, PostType, PostWithDetails } from "@/types";
@@ -23,12 +35,6 @@ const POST_TYPE_LABELS: Record<PostType, string> = {
   announcement: "Announcement",
   material: "Material",
   quiz_link: "Quiz Link",
-};
-
-const POST_TYPE_COLORS: Record<PostType, string> = {
-  announcement: "#2563eb",
-  material: "#7c3aed",
-  quiz_link: "#d97706",
 };
 
 function formatTime(iso: string): string {
@@ -50,11 +56,19 @@ function isImageType(mime: string): boolean {
   return mime.startsWith("image/");
 }
 
+// Static decorative colours for post type badges (not theme-dependent)
+const POST_TYPE_COLORS: Record<PostType, string> = {
+  announcement: "#6366f1", // indigo
+  material: "#0ea5e9",    // sky
+  quiz_link: "#f59e0b",   // amber
+};
+
 // ---------------------------------------------------------------------------
 // Attachment Thumbnail
 // ---------------------------------------------------------------------------
 
 function AttachmentThumbnail({ attachment }: { attachment: Attachment }) {
+  const { colors } = useTheme();
   if (isImageType(attachment.file_type)) {
     return (
       <Pressable
@@ -109,40 +123,19 @@ function AttachmentThumbnail({ attachment }: { attachment: Attachment }) {
 // ---------------------------------------------------------------------------
 
 function PostCard({ post }: { post: PostWithDetails }) {
-  const typeColor = POST_TYPE_COLORS[post.type];
+  const { colors, accent } = useTheme();
 
   return (
-    <View
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: radii.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        padding: spacing.lg,
-        gap: spacing.md,
-      }}
-    >
+    <Card variant="flat">
       {/* Header: author + type badge + time */}
       <View
         style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
       >
-        <View
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            backgroundColor: colors.primaryMuted,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <ThemedText
-            variant="small"
-            style={{ color: colors.primary, fontWeight: "600" }}
-          >
-            {post.author?.full_name?.charAt(0)?.toUpperCase() ?? "?"}
-          </ThemedText>
-        </View>
+        <Avatar
+          name={post.author?.full_name ?? "Unknown"}
+          uri={post.author?.avatar_url}
+          size={32}
+        />
         <View style={{ flex: 1 }}>
           <ThemedText variant="caption" style={{ fontWeight: "600" }}>
             {post.author?.full_name ?? "Unknown"}
@@ -151,21 +144,11 @@ function PostCard({ post }: { post: PostWithDetails }) {
             {formatTime(post.created_at)}
           </ThemedText>
         </View>
-        <View
-          style={{
-            backgroundColor: typeColor + "18",
-            borderRadius: radii.pill,
-            paddingHorizontal: spacing.sm,
-            paddingVertical: 2,
-          }}
-        >
-          <ThemedText
-            variant="small"
-            style={{ color: typeColor, fontWeight: "600" }}
-          >
-            {POST_TYPE_LABELS[post.type]}
-          </ThemedText>
-        </View>
+        <Badge
+          label={POST_TYPE_LABELS[post.type]}
+          tone={post.type === "announcement" ? "accent" : post.type === "material" ? "neutral" : "warning"}
+          size="sm"
+        />
       </View>
 
       {/* Content */}
@@ -231,7 +214,7 @@ function PostCard({ post }: { post: PostWithDetails }) {
           </Pressable>
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 
@@ -242,7 +225,7 @@ function PostCard({ post }: { post: PostWithDetails }) {
 export default function StudentClassFeedScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const classId = id ?? "";
-  const accent = getAccent("student");
+  const { colors, accent } = useTheme();
   const { classData, loading: classLoading } = useClass(classId);
   const { posts, loading, refreshing, refresh } = useClassFeed(classId);
 
@@ -253,25 +236,11 @@ export default function StudentClassFeedScreen() {
   const renderEmpty = () => {
     if (loading) return null;
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          paddingVertical: spacing.xxl,
-        }}
-      >
-        <ThemedText
-          variant="heading"
-          muted
-          style={{ marginBottom: spacing.sm }}
-        >
-          No posts yet
-        </ThemedText>
-        <ThemedText muted style={{ textAlign: "center" }}>
-          Your teacher hasn't posted anything yet.{"\n"}Check back later!
-        </ThemedText>
-      </View>
+      <EmptyState
+        icon={CheckSquare}
+        title="No posts yet"
+        message="Your teacher hasn't posted anything yet.\nCheck back later!"
+      />
     );
   };
 
@@ -279,78 +248,76 @@ export default function StudentClassFeedScreen() {
     <Screen>
       <View style={{ flex: 1 }}>
         {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <Pressable onPress={() => router.back()}>
-            <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <ThemedText variant="heading" numberOfLines={1}>
-              {classLoading ? "Loading..." : (classData?.name ?? "Class Feed")}
-            </ThemedText>
-            {classData && (
-              <ThemedText variant="small" muted>
-                {classData.subject}
-                {classData.section ? ` · ${classData.section}` : ""}
-              </ThemedText>
-            )}
-          </View>
-          {/* Navigation pills */}
-          <Pressable
-            onPress={() =>
-              router.push(Routes.studentClassQuizzes(classId) as any)
-            }
-            style={{
-              paddingHorizontal: spacing.sm,
-              paddingVertical: spacing.xs,
-              borderRadius: radii.pill,
-              backgroundColor: accent.accentSoft,
-            }}
-          >
-            <ThemedText
-              variant="small"
-              style={{ color: accent.accentText, fontWeight: "600" }}
-            >
-              Quizzes
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push(Routes.studentGrades as any)}
-            style={{
-              paddingHorizontal: spacing.sm,
-              paddingVertical: spacing.xs,
-              borderRadius: radii.pill,
-              backgroundColor: accent.accentSoft,
-            }}
-          >
-            <ThemedText
-              variant="small"
-              style={{ color: accent.accentText, fontWeight: "600" }}
-            >
-              Grades
-            </ThemedText>
-          </Pressable>
-        </View>
+        <ScreenHeader
+          title={classLoading ? "Loading..." : (classData?.name ?? "Class Feed")}
+          subtitle={classData ? `${classData.subject}${classData.section ? ` · ${classData.section}` : ""}` : undefined}
+          onBack={() => router.back()}
+          rightAction={
+            <View style={{ flexDirection: "row", gap: spacing.xs }}>
+              <Pressable
+                onPress={() =>
+                  router.push(Routes.studentClassQuizzes(classId) as any)
+                }
+                style={{
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: spacing.xs,
+                  borderRadius: radii.pill,
+                  backgroundColor: accent.accentSoft,
+                }}
+              >
+                <ThemedText
+                  variant="small"
+                  style={{ color: accent.accentText, fontWeight: "600" }}
+                >
+                  Quizzes
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => router.push(Routes.studentGrades as any)}
+                style={{
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: spacing.xs,
+                  borderRadius: radii.pill,
+                  backgroundColor: accent.accentSoft,
+                }}
+              >
+                <ThemedText
+                  variant="small"
+                  style={{ color: accent.accentText, fontWeight: "600" }}
+                >
+                  Grades
+                </ThemedText>
+              </Pressable>
+            </View>
+          }
+        />
 
         {/* Feed */}
         {loading && posts.length === 0 ? (
           <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              paddingTop: spacing.xxl,
+            }}
           >
-            <ActivityIndicator size="large" color={accent.accent} />
+            <FadeInView>
+              <View style={{ gap: spacing.md }}>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </View>
+            </FadeInView>
           </View>
         ) : (
           <FlatList
             data={posts}
             keyExtractor={(item) => item.id}
-            renderItem={renderPost}
+            renderItem={({ item, index }) => (
+              <AnimatedListItem index={index}>
+                {renderPost({ item })}
+              </AnimatedListItem>
+            )}
             ListEmptyComponent={renderEmpty}
             contentContainerStyle={{
               gap: spacing.md,

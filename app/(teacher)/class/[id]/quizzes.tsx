@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
@@ -9,8 +8,24 @@ import {
   View,
 } from "react-native";
 
-import { Button, Screen, TextField, ThemedText } from "@/components";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import {
+  AnimatedListItem,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  FadeInView,
+  Screen,
+  ScreenHeader,
+  SkeletonCard,
+  TextField,
+  ThemedText,
+  useToast,
+} from "@/components";
+import { Clipboard, ClipboardList } from "lucide-react-native";
+import { radii, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { useResponsive } from "@/hooks/useResponsive";
 import { useClass, useClassQuizzes } from "@/hooks/useClasses";
 import { supabase } from "@/lib/supabase";
 import type { Quiz, QuizStatus } from "@/types";
@@ -19,17 +34,15 @@ import type { Quiz, QuizStatus } from "@/types";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const STATUS_COLORS: Record<QuizStatus, string> = {
-  draft: "#94a3b8",
-  published: "#16a34a",
-  closed: "#dc2626",
+const STATUS_TO_TONE: Record<QuizStatus, "neutral" | "success" | "danger"> = {
+  draft: "neutral",
+  published: "success",
+  closed: "danger",
 };
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
-
-const accent = getAccent("teacher");
 
 // ---------------------------------------------------------------------------
 // Create Quiz Modal (inline form)
@@ -44,6 +57,7 @@ function CreateQuizForm({
   onCreated: () => void;
   onCancel: () => void;
 }) {
+  const { colors } = useTheme();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
@@ -122,29 +136,23 @@ function CreateQuizForm({
 // ---------------------------------------------------------------------------
 
 function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
-  const statusColor = STATUS_COLORS[quiz.status];
+  const tone = STATUS_TO_TONE[quiz.status];
 
   return (
-    <Pressable
+    <Card
+      variant="flat"
       onPress={() =>
         router.push(
           `/(teacher)/class/${classId}/quizzes/${quiz.id}/edit` as any,
         )
       }
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: radii.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        padding: spacing.lg,
-        gap: spacing.sm,
-      }}
     >
       <View
         style={{
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "flex-start",
+          marginBottom: spacing.sm,
         }}
       >
         <View style={{ flex: 1, gap: spacing.xs }}>
@@ -155,25 +163,7 @@ function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
             </ThemedText>
           ) : null}
         </View>
-        <View
-          style={{
-            backgroundColor: statusColor + "18",
-            borderRadius: radii.pill,
-            paddingHorizontal: spacing.sm,
-            paddingVertical: 2,
-          }}
-        >
-          <ThemedText
-            variant="small"
-            style={{
-              color: statusColor,
-              fontWeight: "600",
-              textTransform: "capitalize",
-            }}
-          >
-            {quiz.status}
-          </ThemedText>
-        </View>
+        <Badge label={quiz.status} tone={tone} size="sm" />
       </View>
       <View
         style={{
@@ -185,23 +175,8 @@ function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
         <ThemedText variant="small" muted>
           Created {formatDate(quiz.created_at)}
         </ThemedText>
-        <View
-          style={{
-            backgroundColor: accent.accentSoft,
-            borderRadius: radii.pill,
-            paddingHorizontal: spacing.sm,
-            paddingVertical: 2,
-          }}
-        >
-          <ThemedText
-            variant="small"
-            style={{ color: accent.accentText, fontWeight: "600" }}
-          >
-            Edit →
-          </ThemedText>
-        </View>
       </View>
-    </Pressable>
+    </Card>
   );
 }
 
@@ -212,6 +187,8 @@ function QuizCard({ quiz, classId }: { quiz: Quiz; classId: string }) {
 export default function QuizzesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const classId = id ?? "";
+  const { colors, accent } = useTheme();
+  const { isTablet } = useResponsive();
   const { classData } = useClass(classId);
   const { quizzes, loading, refreshing, refresh } = useClassQuizzes(classId);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -228,25 +205,15 @@ export default function QuizzesScreen() {
   const renderEmpty = () => {
     if (loading) return null;
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          paddingVertical: spacing.xxl,
-        }}
-      >
-        <ThemedText
-          variant="heading"
-          muted
-          style={{ marginBottom: spacing.sm }}
-        >
-          No quizzes yet
-        </ThemedText>
-        <ThemedText muted style={{ textAlign: "center" }}>
-          Create your first quiz to assess your students.
-        </ThemedText>
-      </View>
+      <EmptyState
+        title="No quizzes yet"
+        message="Create your first quiz to assess your students."
+        icon={ClipboardList}
+        actionLabel="Create Quiz"
+        onAction={() =>
+          router.push(`/(teacher)/class/${classId}/quizzes/create` as any)
+        }
+      />
     );
   };
 
@@ -254,29 +221,11 @@ export default function QuizzesScreen() {
     <Screen>
       <View style={{ flex: 1 }}>
         {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <Pressable onPress={() => router.back()}>
-            <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <ThemedText variant="heading" numberOfLines={1}>
-              Quizzes
-            </ThemedText>
-            {classData && (
-              <ThemedText variant="small" muted>
-                {classData.name}
-              </ThemedText>
-            )}
-          </View>
-        </View>
+        <ScreenHeader
+          title="Quizzes"
+          subtitle={classData?.name}
+          onBack={() => router.back()}
+        />
 
         {/* Create Quiz button */}
         {!showCreateForm && (
@@ -303,21 +252,38 @@ export default function QuizzesScreen() {
         {/* Quiz list */}
         {loading && quizzes.length === 0 ? (
           <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              paddingTop: spacing.xxl,
+            }}
           >
-            <ActivityIndicator size="large" color={accent.accent} />
+            <FadeInView>
+              <View style={{ gap: spacing.md }}>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </View>
+            </FadeInView>
           </View>
         ) : (
           <FlatList
             data={quizzes}
             keyExtractor={(item) => item.id}
-            renderItem={renderQuiz}
+            key={isTablet ? "grid" : "list"}
+            numColumns={isTablet ? 2 : undefined}
+            renderItem={({ item, index }) => (
+              <AnimatedListItem index={index}>
+                {renderQuiz({ item })}
+              </AnimatedListItem>
+            )}
             ListEmptyComponent={renderEmpty}
             contentContainerStyle={{
               gap: spacing.md,
               paddingBottom: spacing.lg,
               flexGrow: 1,
             }}
+            columnWrapperStyle={isTablet ? { gap: spacing.md } : undefined}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}

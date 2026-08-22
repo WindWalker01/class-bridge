@@ -1,38 +1,38 @@
+import { router } from "expo-router";
 import { useFocusEffect } from "expo-router";
+import { Plus } from "lucide-react-native";
 import { useCallback } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
   View,
 } from "react-native";
 
-import { Screen, ThemedText } from "@/components";
-import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import {
+  AnimatedListItem,
+  Card,
+  EmptyState,
+  FadeInView,
+  IconButton,
+  Screen,
+  SkeletonCard,
+  ThemedText,
+} from "@/components";
+import { Avatar } from "@/components/Avatar";
+import { radii, spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useTeacherClasses } from "@/hooks/useClasses";
+import { useTheme } from "@/hooks/useTheme";
+import { useResponsive } from "@/hooks/useResponsive";
 import { Routes } from "@/lib/navigation";
 import type { ClassWithCount } from "@/types";
 
 export default function TeacherHomeScreen() {
-  const accent = getAccent("teacher");
-  const { signOut } = useAuth();
+  const { colors, accent } = useTheme();
+  const { isTablet } = useResponsive();
   const { classes, loading, refreshing, refresh } = useTeacherClasses();
-
-  const handleSignOut = useCallback(() => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: () => {
-          void signOut();
-        },
-      },
-    ]);
-  }, [signOut]);
+  const { profile } = useAuth();
 
   // Refresh when screen comes into focus (e.g. after creating a class)
   useFocusEffect(
@@ -42,19 +42,11 @@ export default function TeacherHomeScreen() {
   );
 
   const renderClassCard = ({ item }: { item: ClassWithCount }) => (
-    <Pressable
+    <Card
+      variant="elevated"
       onPress={() => {
-        // Navigate to class feed — using router.push directly
         const { router } = require("expo-router");
         router.push(Routes.classFeed(item.id));
-      }}
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: radii.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        padding: spacing.lg,
-        gap: spacing.sm,
       }}
     >
       <View
@@ -93,31 +85,18 @@ export default function TeacherHomeScreen() {
       <ThemedText variant="small" muted>
         Code: {item.class_code}
       </ThemedText>
-    </Pressable>
+    </Card>
   );
 
   const renderEmpty = () => {
     if (loading) return null;
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          paddingVertical: spacing.xxl,
-        }}
-      >
-        <ThemedText
-          variant="heading"
-          muted
-          style={{ marginBottom: spacing.sm }}
-        >
-          No classes yet
-        </ThemedText>
-        <ThemedText muted style={{ textAlign: "center" }}>
-          Create your first class to get started.
-        </ThemedText>
-      </View>
+      <EmptyState
+        title="No classes yet"
+        message="Create your first class to get started!"
+        actionLabel="Create Class"
+        onAction={() => router.push(Routes.createClass)}
+      />
     );
   };
 
@@ -141,41 +120,52 @@ export default function TeacherHomeScreen() {
             </ThemedText>
           </View>
           <Pressable
-            onPress={handleSignOut}
-            style={{
-              backgroundColor: accent.accentSoft,
-              borderRadius: radii.pill,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-            }}
+            onPress={() => router.push(Routes.teacherSettings)}
+            accessibilityLabel="Open settings"
           >
-            <ThemedText
-              variant="small"
-              style={{ color: accent.accentText, fontWeight: "600" }}
-            >
-              Sign Out
-            </ThemedText>
+            <Avatar
+              uri={profile?.avatar_url}
+              name={profile?.full_name ?? "User"}
+              size={32}
+            />
           </Pressable>
         </View>
 
         {/* Class list */}
         {loading && classes.length === 0 ? (
           <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              paddingTop: spacing.xxl,
+            }}
           >
-            <ActivityIndicator size="large" color={accent.accent} />
+            <FadeInView>
+              <View style={{ gap: spacing.md }}>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </View>
+            </FadeInView>
           </View>
         ) : (
           <FlatList
             data={classes}
             keyExtractor={(item) => item.id}
-            renderItem={renderClassCard}
+            key={isTablet ? "grid" : "list"}
+            numColumns={isTablet ? 2 : undefined}
+            renderItem={({ item, index }) => (
+              <AnimatedListItem index={index}>
+                {renderClassCard({ item })}
+              </AnimatedListItem>
+            )}
             ListEmptyComponent={renderEmpty}
             contentContainerStyle={{
               gap: spacing.md,
               paddingBottom: 100, // space for FAB
               flexGrow: 1,
             }}
+            columnWrapperStyle={isTablet ? { gap: spacing.md } : undefined}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -189,7 +179,12 @@ export default function TeacherHomeScreen() {
         )}
 
         {/* FAB — Create Class */}
-        <Pressable
+        <IconButton
+          icon={Plus}
+          variant="filled"
+          backgroundColor={accent.accent}
+          color={colors.white}
+          size={28}
           onPress={() => {
             const { router } = require("expo-router");
             router.push(Routes.createClass);
@@ -198,31 +193,8 @@ export default function TeacherHomeScreen() {
             position: "absolute",
             bottom: spacing.lg,
             right: spacing.lg,
-            backgroundColor: accent.accent,
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            alignItems: "center",
-            justifyContent: "center",
-            // Shadow
-            shadowColor: colors.black,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 6,
           }}
-        >
-          <ThemedText
-            style={{
-              color: colors.white,
-              fontSize: 28,
-              lineHeight: 30,
-              fontWeight: "300",
-            }}
-          >
-            +
-          </ThemedText>
-        </Pressable>
+        />
       </View>
     </Screen>
   );

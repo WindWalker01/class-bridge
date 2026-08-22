@@ -28,6 +28,10 @@ export const Routes = {
   classQuizzes: (id: string) => `/(teacher)/class/${id}/quizzes` as Href,
   classGradebook: (id: string) => `/(teacher)/class/${id}/gradebook` as Href,
 
+  // Settings screens
+  teacherSettings: "/(teacher)/settings" as Href,
+  studentSettings: "/(student)/settings" as Href,
+
   // Student screens
   studentJoinClass: "/(student)/join-class" as Href,
   studentClassFeed: (id: string) => `/(student)/class/${id}` as Href,

@@ -1,14 +1,39 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { ChevronDown, ChevronUp, Trophy } from "lucide-react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSpring,
+  withTiming,
+  Layout,
+  FadeIn,
+  FadeOut,
+  ZoomIn,
+  ZoomOut,
+} from "react-native-reanimated";
 
-import { Screen, ThemedText } from "@/components";
+import {
+  AnimatedListItem,
+  AnimatedScore,
+  Card,
+  EmptyState,
+  FadeInView,
+  Screen,
+  ScreenHeader,
+  SkeletonRow,
+  ThemedText,
+} from "@/components";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { useResponsive } from "@/hooks/useResponsive";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { LeaderboardEntry } from "@/types";
@@ -17,10 +42,8 @@ import type { LeaderboardEntry } from "@/types";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const accent = getAccent("student");
-
 const MEDAL_COLORS: Record<number, string> = {
-  1: "#fbbf24", // gold
+  1: "#fbbf24", // gold - kept as static decorative colors
   2: "#94a3b8", // silver
   3: "#d97706", // bronze
 };
@@ -33,85 +56,177 @@ function formatDate(iso: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// PulsingDot — the "Live" indicator
+// ---------------------------------------------------------------------------
+
+function PulsingDot() {
+  const opacity = useSharedValue(1);
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withTiming(0.3, { duration: 1000 }),
+      -1,
+      true,
+    );
+    scale.value = withRepeat(
+      withTiming(0.8, { duration: 1000 }),
+      -1,
+      true,
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: colors.success,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RankChangeIndicator — brief up/down arrow with highlight flash
+// ---------------------------------------------------------------------------
+
+function RankChangeIndicator({
+  rankChange,
+}: {
+  rankChange: "up" | "down" | "same" | null;
+}) {
+  if (rankChange === "same" || rankChange === null) return null;
+
+  const isUp = rankChange === "up";
+  return (
+    <Animated.View
+      entering={ZoomIn.duration(200).springify()}
+      exiting={ZoomOut.duration(200)}
+    >
+      {isUp ? (
+        <ChevronUp size={16} color={colors.success} strokeWidth={3} />
+      ) : (
+        <ChevronDown size={16} color={colors.danger} strokeWidth={3} />
+      )}
+    </Animated.View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Leaderboard Entry Card
 // ---------------------------------------------------------------------------
 
 function LeaderboardCard({
   entry,
   isCurrentUser,
+  rankChange,
 }: {
   entry: LeaderboardEntry;
   isCurrentUser: boolean;
+  rankChange: "up" | "down" | "same" | null;
 }) {
+  const { accent } = useTheme();
   const medalColor = MEDAL_COLORS[entry.rank];
+  const isRankOne = entry.rank === 1;
 
   return (
-    <View
-      style={{
-        backgroundColor: isCurrentUser ? accent.accentSoft : colors.surface,
-        borderRadius: radii.lg,
-        borderWidth: 1,
-        borderColor: isCurrentUser ? accent.accent : colors.border,
-        padding: spacing.md,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: spacing.md,
-      }}
+    <Animated.View
+      layout={Layout.springify().damping(15).stiffness(120)}
+      entering={FadeIn.duration(300).springify()}
+      exiting={FadeOut.duration(200)}
     >
-      {/* Rank */}
-      <View
+      <Card
+        variant={isRankOne ? "elevated" : "flat"}
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: medalColor ? medalColor + "20" : colors.surfaceMuted,
+          backgroundColor: isCurrentUser
+            ? accent.accentSoft
+            : isRankOne
+              ? colors.white
+              : colors.surface,
+          borderColor: isRankOne
+            ? accent.accent
+            : isCurrentUser
+              ? accent.accent
+              : colors.border,
+          borderWidth: isRankOne ? 2 : 1,
+          flexDirection: "row",
           alignItems: "center",
-          justifyContent: "center",
+          gap: spacing.md,
         }}
       >
-        {entry.rank <= 3 ? (
-          <ThemedText style={{ fontSize: 20 }}>
-            {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : "🥉"}
-          </ThemedText>
-        ) : (
+        {/* Rank with change indicator */}
+        <View style={{ alignItems: "center", gap: 2 }}>
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: medalColor
+                ? medalColor + "20"
+                : colors.surfaceMuted,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {entry.rank <= 3 ? (
+              <ThemedText style={{ fontSize: 20 }}>
+                {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : "🥉"}
+              </ThemedText>
+            ) : (
+              <ThemedText
+                variant="body"
+                style={{ fontWeight: "600", color: colors.textMuted }}
+              >
+                {entry.rank}
+              </ThemedText>
+            )}
+          </View>
+          <RankChangeIndicator rankChange={rankChange} />
+        </View>
+
+        {/* Student info */}
+        <View style={{ flex: 1, gap: spacing.xs }}>
           <ThemedText
             variant="body"
-            style={{ fontWeight: "600", color: colors.textMuted }}
+            style={{ fontWeight: isCurrentUser ? "700" : "500" }}
           >
-            {entry.rank}
+            {entry.student_name}
+            {isCurrentUser ? " (You)" : ""}
           </ThemedText>
-        )}
-      </View>
+          <ThemedText variant="small" muted>
+            Submitted {formatDate(entry.submitted_at)}
+          </ThemedText>
+        </View>
 
-      {/* Student info */}
-      <View style={{ flex: 1, gap: spacing.xs }}>
-        <ThemedText
-          variant="body"
-          style={{ fontWeight: isCurrentUser ? "700" : "500" }}
-        >
-          {entry.student_name}
-          {isCurrentUser ? " (You)" : ""}
-        </ThemedText>
-        <ThemedText variant="small" muted>
-          Submitted {formatDate(entry.submitted_at)}
-        </ThemedText>
-      </View>
-
-      {/* Score */}
-      <View style={{ alignItems: "flex-end" }}>
-        <ThemedText
-          variant="heading"
-          style={{
-            color: isCurrentUser ? accent.accentText : colors.text,
-          }}
-        >
-          {entry.score}
-        </ThemedText>
-        <ThemedText variant="small" muted>
-          / {entry.max_score}
-        </ThemedText>
-      </View>
-    </View>
+        {/* Score */}
+        <View style={{ alignItems: "flex-end" }}>
+          <AnimatedScore
+            value={entry.score}
+            duration={400}
+            style={{
+              fontSize: 20,
+              lineHeight: 26,
+              fontWeight: "600",
+              color: isCurrentUser ? accent.accentText : colors.text,
+            }}
+            format={(v) => String(Math.round(v))}
+          />
+          <ThemedText variant="small" muted>
+            / {entry.max_score}
+          </ThemedText>
+        </View>
+      </Card>
+    </Animated.View>
   );
 }
 
@@ -126,66 +241,68 @@ export default function LeaderboardScreen() {
   const { entries, loading, refreshing, refresh } = useLeaderboard(
     quizId ?? "",
   );
+  const { accent } = useTheme();
 
-  const renderEntry = ({ item }: { item: LeaderboardEntry }) => (
-    <LeaderboardCard
-      entry={item}
-      isCurrentUser={item.student_id === user?.id}
-    />
+  // Track previous ranks for change detection
+  const prevRanksRef = useRef<Map<string, number>>(new Map());
+  const [rankChanges, setRankChanges] = useState<Map<string, "up" | "down" | "same" | null>>(new Map());
+
+  useEffect(() => {
+    const newChanges = new Map<string, "up" | "down" | "same" | null>();
+    const prevRanks = prevRanksRef.current;
+
+    for (const entry of entries) {
+      const prevRank = prevRanks.get(entry.student_id);
+      if (prevRank !== undefined && prevRank !== entry.rank) {
+        newChanges.set(entry.student_id, prevRank > entry.rank ? "up" : "down");
+      } else {
+        newChanges.set(entry.student_id, "same");
+      }
+    }
+
+    // Update previous ranks
+    const newPrevRanks = new Map<string, number>();
+    for (const entry of entries) {
+      newPrevRanks.set(entry.student_id, entry.rank);
+    }
+    prevRanksRef.current = newPrevRanks;
+
+    if (entries.length > 0) {
+      setRankChanges(newChanges);
+    }
+  }, [entries]);
+
+  const renderEntry = ({ item, index }: { item: LeaderboardEntry; index: number }) => (
+    <AnimatedListItem index={index} staggerMs={30}>
+      <LeaderboardCard
+        entry={item}
+        isCurrentUser={item.student_id === user?.id}
+        rankChange={rankChanges.get(item.student_id) ?? null}
+      />
+    </AnimatedListItem>
   );
 
   const renderEmpty = () => {
     if (loading) return null;
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          paddingVertical: spacing.xxl,
-        }}
-      >
-        <ThemedText
-          variant="heading"
-          muted
-          style={{ marginBottom: spacing.sm }}
-        >
-          No submissions yet
-        </ThemedText>
-        <ThemedText muted style={{ textAlign: "center" }}>
-          Be the first to submit and appear on the leaderboard!
-        </ThemedText>
-      </View>
+      <EmptyState
+        icon={Trophy}
+        title="No submissions yet"
+        message="Be the first to take this quiz!"
+      />
     );
   };
 
   return (
     <Screen>
       <View style={{ flex: 1 }}>
-        {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <Pressable onPress={() => router.back()}>
-            <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <ThemedText variant="heading" numberOfLines={1}>
-              Leaderboard
-            </ThemedText>
-            <ThemedText variant="small" muted>
-              {entries.length} submission{entries.length !== 1 ? "s" : ""}
-            </ThemedText>
-          </View>
-        </View>
+        <ScreenHeader
+          title="Leaderboard"
+          subtitle={`${entries.length} submission${entries.length !== 1 ? "s" : ""}`}
+          onBack={() => router.back()}
+        />
 
-        {/* Live indicator */}
+        {/* Live indicator — animated pulsing dot */}
         <View
           style={{
             flexDirection: "row",
@@ -199,14 +316,7 @@ export default function LeaderboardScreen() {
             alignSelf: "flex-start",
           }}
         >
-          <View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: colors.success,
-            }}
-          />
+          <PulsingDot />
           <ThemedText
             variant="small"
             style={{ color: colors.success, fontWeight: "600" }}
@@ -217,16 +327,21 @@ export default function LeaderboardScreen() {
 
         {/* Leaderboard list */}
         {loading && entries.length === 0 ? (
-          <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-          >
-            <ActivityIndicator size="large" color={accent.accent} />
-          </View>
+          <FadeInView>
+            <View style={{ gap: spacing.sm }}>
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+            </View>
+          </FadeInView>
         ) : (
           <FlatList
             data={entries}
             keyExtractor={(item) => item.student_id}
             renderItem={renderEntry}
+            extraData={rankChanges}
             ListEmptyComponent={renderEmpty}
             contentContainerStyle={{
               gap: spacing.sm,

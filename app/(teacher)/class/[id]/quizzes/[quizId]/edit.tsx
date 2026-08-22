@@ -1,14 +1,26 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
   View,
 } from "react-native";
+import { AlertCircle } from "lucide-react-native";
 
-import { Button, Screen, TextField, ThemedText } from "@/components";
+import {
+  AnimatedListItem,
+  Button,
+  EmptyState,
+  FadeInView,
+  Screen,
+  ScreenHeader,
+  SkeletonCard,
+  SkeletonText,
+  TextField,
+  ThemedText,
+  useToast,
+} from "@/components";
 import DraggableQuestionList from "@/components/DraggableQuestionList";
 import { colors, getAccent, radii, spacing } from "@/constants/theme";
 import { useQuizBuilder } from "@/hooks/useQuizBuilder";
@@ -582,6 +594,7 @@ export default function EditQuizScreen() {
     deleteQuestion,
     reorderQuestions,
   } = useQuizBuilder(quizId ?? "");
+  const toast = useToast();
 
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
@@ -616,6 +629,12 @@ export default function EditQuizScreen() {
     setEditingQuestion(null);
   };
 
+  const handleTogglePublish = async () => {
+    const wasPublished = quiz?.status === "published";
+    await togglePublish();
+    toast.show(wasPublished ? "Quiz unpublished!" : "Quiz published!");
+  };
+
   const handleDeleteQuestion = (questionId: string) => {
     Alert.alert(
       "Delete Question",
@@ -647,9 +666,20 @@ export default function EditQuizScreen() {
     return (
       <Screen>
         <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            paddingTop: spacing.xxl,
+          }}
         >
-          <ActivityIndicator size="large" color={accent.accent} />
+          <FadeInView>
+            <View style={{ gap: spacing.md }}>
+              <SkeletonCard />
+              <SkeletonText lines={2} />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
+          </FadeInView>
         </View>
       </Screen>
     );
@@ -678,24 +708,10 @@ export default function EditQuizScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            paddingTop: spacing.lg,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <Pressable onPress={() => router.back()}>
-            <ThemedText style={{ fontSize: 24 }}>←</ThemedText>
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <ThemedText variant="heading" numberOfLines={1}>
-              Edit Quiz
-            </ThemedText>
-          </View>
-        </View>
+        <ScreenHeader
+          title="Edit Quiz"
+          onBack={() => router.back()}
+        />
 
         {/* Quiz Settings Card */}
         <View
@@ -843,7 +859,7 @@ export default function EditQuizScreen() {
             variant={isPublished ? "ghost" : "primary"}
             fullWidth
             loading={saving}
-            onPress={togglePublish}
+            onPress={handleTogglePublish}
           />
         </View>
 
@@ -887,23 +903,11 @@ export default function EditQuizScreen() {
 
           {/* Question List */}
           {questions.length === 0 && !showQuestionForm ? (
-            <View
-              style={{
-                backgroundColor: colors.surface,
-                borderRadius: radii.lg,
-                borderWidth: 1,
-                borderColor: colors.border,
-                padding: spacing.xl,
-                alignItems: "center",
-              }}
-            >
-              <ThemedText muted style={{ marginBottom: spacing.sm }}>
-                No questions yet
-              </ThemedText>
-              <ThemedText variant="small" muted style={{ textAlign: "center" }}>
-                Add your first question to build this quiz.
-              </ThemedText>
-            </View>
+            <EmptyState
+              icon={AlertCircle}
+              title="No questions yet"
+              message="Add your first question to build this quiz."
+            />
           ) : (
             <DraggableQuestionList
               questions={questions}
