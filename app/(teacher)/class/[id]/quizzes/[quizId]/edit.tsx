@@ -1054,9 +1054,6 @@ export default function EditQuizScreen() {
                           >
                             {cat.name}
                           </ThemedText>
-                          <ThemedText variant="small" muted>
-                            {cat.weight}%
-                          </ThemedText>
                         </Pressable>
                       );
                     })}

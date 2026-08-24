@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { router, useLocalSearchParams } from "expo-router";
 import { File, FileText } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -27,7 +28,6 @@ import {
   typography,
   type ColorTokens,
 } from "@/constants/theme";
-import { useTheme } from "@/hooks/useTheme";
 import { useClass } from "@/hooks/useClasses";
 import {
   useCreateManualGradedItem,
@@ -38,6 +38,7 @@ import {
   useGrades,
   useUpsertGrade,
 } from "@/hooks/useGradeEngine";
+import { useTheme } from "@/hooks/useTheme";
 import {
   exportGradebook,
   type GradeColumnType,
@@ -83,6 +84,76 @@ function letterColor(
 // Gradebook Screen
 // ---------------------------------------------------------------------------
 
+type ManualScoreInputProps = {
+  /** Persisted score value ("" when there's no grade row yet). */
+  value: string;
+  /** Called with the new value when the teacher finishes editing the cell. */
+  onSubmit: (value: string) => void;
+};
+
+/**
+ * Editable score input for manual graded-item cells.
+ *
+ * Keeps a local draft while the field is focused so each keystroke does NOT
+ * trigger a DB save. (The old wiring saved on every keystroke and re-bound the
+ * displayed value from the stored row via an async refresh, which dropped
+ * digits and made multi-digit scores impossible to type.) The draft is
+ * committed once, on blur or keyboard submit, and only if it actually changed.
+ */
+function ManualScoreInput({ value, onSubmit }: ManualScoreInputProps) {
+  const { colors } = useTheme();
+  const [draft, setDraft] = useState(value);
+  const [focused, setFocused] = useState(false);
+  const lastSubmitted = useRef<string | null>(null);
+
+  // Re-sync from the persisted value only while the cell is not focused, and
+  // never overwrite the value we just committed while the async refresh is
+  // still in flight (that would flash the teacher's entry back to the last
+  // saved score).
+  useEffect(() => {
+    if (!focused) {
+      if (draft !== value && lastSubmitted.current !== draft) {
+        setDraft(value);
+      } else if (draft === value) {
+        lastSubmitted.current = null;
+      }
+    }
+  }, [focused, value, draft]);
+
+  const commit = () => {
+    setFocused(false);
+    lastSubmitted.current = draft;
+    if (draft !== value) {
+      onSubmit(draft);
+    }
+  };
+
+  return (
+    <TextInput
+      value={draft}
+      placeholder="—"
+      placeholderTextColor={colors.textSubtle}
+      keyboardType="numeric"
+      onChangeText={setDraft}
+      onFocus={() => setFocused(true)}
+      onBlur={commit}
+      onSubmitEditing={commit}
+      style={{
+        width: "100%",
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radii.sm,
+        paddingHorizontal: spacing.xs,
+        paddingVertical: 4,
+        color: colors.text,
+        fontSize: typography.caption.fontSize,
+        textAlign: "center",
+        backgroundColor: colors.surface,
+      }}
+    />
+  );
+}
+
 export default function GradebookScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const classId = id ?? "";
@@ -91,7 +162,7 @@ export default function GradebookScreen() {
   const insets = useSafeAreaInsets();
 
   // Data hooks
-  const { categories } = useGradeCategories(classId);
+  const { categories, refresh: refreshCategories } = useGradeCategories(classId);
   const {
     items: gradedItems,
     loading: itemsLoading,
@@ -226,6 +297,7 @@ export default function GradebookScreen() {
       "Student",
       ...gradedItems.map((i) => i.title),
       ...categoryNames,
+      "Points",
       "Final",
       "Letter",
     ];
@@ -233,6 +305,7 @@ export default function GradebookScreen() {
       "student",
       ...gradedItems.map(() => "score" as const),
       ...categoryNames.map(() => "category" as const),
+      "points" as const,
       "final" as const,
       "letter" as const,
     ];
@@ -251,6 +324,9 @@ export default function GradebookScreen() {
         student.studentName,
         ...itemCells,
         ...catCells,
+        final
+          ? `${final.pointsEarned} / ${final.pointsPossible}`
+          : null,
         final ? final.finalPercentage : null,
         final ? final.letterGrade : null,
       ] as (string | number | null)[];
@@ -303,6 +379,23 @@ export default function GradebookScreen() {
     },
     [upsert, refreshGrades, refreshFinals],
   );
+
+  // Open the "New Manual Item" sheet, ensuring a default category exists first.
+  // Categories are only created when a quiz is first published (or when saved in
+  // Grade Settings), so a brand-new class has none — but a manual item requires
+  // one (graded_items.category_id is NOT NULL). Insert a default "Quizzes" (100%)
+  // category on demand. onConflict/ignoreDuplicates makes it a safe no-op when a
+  // category already exists.
+  const handleOpenAddItem = async (): Promise<void> => {
+    await supabase
+      .from("grade_categories")
+      .upsert(
+        { class_id: classId, name: "Quizzes" },
+        { onConflict: "class_id,name", ignoreDuplicates: true },
+      );
+    await refreshCategories();
+    setShowAddItem(true);
+  };
 
   const handleAddManualItem = async () => {
     if (!newItemTitle.trim()) {
@@ -522,7 +615,7 @@ export default function GradebookScreen() {
           <View style={{ marginBottom: spacing.md }}>
             {!showAddItem ? (
               <Pressable
-                onPress={() => setShowAddItem(true)}
+                onPress={() => void handleOpenAddItem()}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
@@ -711,6 +804,18 @@ export default function GradebookScreen() {
                       </ThemedText>
                     </Pressable>
                   ))}
+                  {/* Points column header (points-based final grade) */}
+                  <View
+                    style={{
+                      width: FINAL_COL_WIDTH,
+                      paddingHorizontal: spacing.sm,
+                      alignItems: "center",
+                    }}
+                  >
+                    <ThemedText variant="small" style={{ fontWeight: "600" }}>
+                      Points
+                    </ThemedText>
+                  </View>
                   {/* Final grade column header */}
                   <View
                     style={{
@@ -792,35 +897,40 @@ export default function GradebookScreen() {
                                 </View>
                               ) : (
                                 // Manual: editable
-                                <TextInput
+                                <ManualScoreInput
                                   value={grade ? String(grade.score) : ""}
-                                  placeholder="—"
-                                  placeholderTextColor={colors.textSubtle}
-                                  keyboardType="numeric"
-                                  onChangeText={(v) =>
+                                  onSubmit={(v) =>
                                     handleScoreChange(
                                       item.id,
                                       student.studentId,
                                       v,
                                     )
                                   }
-                                  style={{
-                                    width: "100%",
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    borderRadius: radii.sm,
-                                    paddingHorizontal: spacing.xs,
-                                    paddingVertical: 4,
-                                    color: colors.text,
-                                    fontSize: typography.caption.fontSize,
-                                    textAlign: "center",
-                                    backgroundColor: colors.surface,
-                                  }}
                                 />
                               )}
                             </View>
                           );
                         })}
+
+                        {/* Points cell */}
+                        <View
+                          style={{
+                            width: FINAL_COL_WIDTH,
+                            paddingHorizontal: spacing.sm,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {final ? (
+                            <ThemedText variant="caption">
+                              {final.pointsEarned} / {final.pointsPossible}
+                            </ThemedText>
+                          ) : (
+                            <ThemedText variant="caption" muted>
+                              —
+                            </ThemedText>
+                          )}
+                        </View>
 
                         {/* Final grade cell */}
                         <View
@@ -831,13 +941,17 @@ export default function GradebookScreen() {
                             justifyContent: "center",
                           }}
                         >
-                          {final ? (
+                          {final && final.finalPercentage !== null ? (
                             <View style={{ alignItems: "center" }}>
                               <ThemedText
                                 variant="body"
                                 style={{
                                   fontWeight: "700",
-                                  color: letterColor(final.letterGrade, colors, resolvedMode),
+                                  color: letterColor(
+                                    final.letterGrade ?? "F",
+                                    colors,
+                                    resolvedMode,
+                                  ),
                                 }}
                               >
                                 {final.finalPercentage}%
@@ -846,7 +960,11 @@ export default function GradebookScreen() {
                                 variant="small"
                                 style={{
                                   fontWeight: "700",
-                                  color: letterColor(final.letterGrade, colors, resolvedMode),
+                                  color: letterColor(
+                                    final.letterGrade ?? "F",
+                                    colors,
+                                    resolvedMode,
+                                  ),
                                 }}
                               >
                                 {final.letterGrade}
@@ -854,7 +972,7 @@ export default function GradebookScreen() {
                             </View>
                           ) : (
                             <ThemedText variant="body" muted>
-                              —
+                              No grades yet
                             </ThemedText>
                           )}
                         </View>

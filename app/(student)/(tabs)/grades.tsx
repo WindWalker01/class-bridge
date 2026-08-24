@@ -27,12 +27,17 @@ import type { CategoryBreakdown, FinalGrade } from "@/types";
 
 function CategoryRow({ breakdown }: { breakdown: CategoryBreakdown }) {
   const { colors } = useTheme();
+  const hasGrades =
+    breakdown.maxScore > 0 && breakdown.score !== null &&
+    breakdown.percentage !== null;
   const pctColor =
-    breakdown.percentage >= 80
-      ? colors.success
-      : breakdown.percentage >= 60
-        ? colors.warning
-        : colors.danger;
+    !hasGrades
+      ? colors.textMuted
+      : breakdown.percentage! >= 80
+        ? colors.success
+        : breakdown.percentage! >= 60
+          ? colors.warning
+          : colors.danger;
 
   return (
     <View
@@ -49,21 +54,26 @@ function CategoryRow({ breakdown }: { breakdown: CategoryBreakdown }) {
         <ThemedText variant="caption" numberOfLines={1}>
           {breakdown.categoryName}
         </ThemedText>
-        <ThemedText variant="small" muted>
-          Weight: {breakdown.weight}%
-        </ThemedText>
       </View>
-      <View style={{ alignItems: "flex-end", gap: spacing.xs }}>
-        <ThemedText variant="caption" style={{ fontWeight: "600" }}>
-          {breakdown.score}/{breakdown.maxScore}
-        </ThemedText>
-        <ThemedText
-          variant="small"
-          style={{ color: pctColor, fontWeight: "600" }}
-        >
-          {breakdown.percentage}%
-        </ThemedText>
-      </View>
+      {hasGrades ? (
+        <View style={{ alignItems: "flex-end", gap: spacing.xs }}>
+          <ThemedText variant="caption" style={{ fontWeight: "600" }}>
+            {breakdown.score}/{breakdown.maxScore}
+          </ThemedText>
+          <ThemedText
+            variant="small"
+            style={{ color: pctColor, fontWeight: "600" }}
+          >
+            {breakdown.percentage}%
+          </ThemedText>
+        </View>
+      ) : (
+        <View style={{ alignItems: "flex-end" }}>
+          <ThemedText variant="small" muted>
+            No graded activities
+          </ThemedText>
+        </View>
+      )}
     </View>
   );
 }
@@ -78,7 +88,8 @@ function ClassGradeSection({
   grade: FinalGrade & { classId: string; className: string };
 }) {
   const { colors, resolvedMode } = useTheme();
-  const gradeColor = letterColor(grade.letterGrade, colors, resolvedMode);
+  const hasGrade = grade.finalPercentage !== null;
+  const gradeColor = letterColor(grade.letterGrade ?? "F", colors, resolvedMode);
 
   return (
     <Card variant="flat">
@@ -95,32 +106,41 @@ function ClassGradeSection({
             {grade.className}
           </ThemedText>
           <ThemedText variant="small" muted>
-            {grade.categoryBreakdown.length}{" "}
-            {grade.categoryBreakdown.length === 1 ? "category" : "categories"}
+            {hasGrade
+              ? `Points: ${grade.pointsEarned} / ${grade.pointsPossible}`
+              : "No graded activities yet"}
           </ThemedText>
         </View>
         <ScaleInView>
           <View
             style={{
-              backgroundColor: gradeColor + "18",
+              backgroundColor: hasGrade ? gradeColor + "18" : colors.surfaceMuted,
               borderRadius: radii.md,
               paddingHorizontal: spacing.md,
               paddingVertical: spacing.sm,
               alignItems: "center",
             }}
           >
-            <ThemedText
-              variant="title"
-              style={{ color: gradeColor, fontWeight: "700" }}
-            >
-              {grade.finalPercentage}%
-            </ThemedText>
-            <ThemedText
-              variant="display"
-              style={{ color: gradeColor, fontWeight: "800" }}
-            >
-              {grade.letterGrade}
-            </ThemedText>
+            {hasGrade ? (
+              <>
+                <ThemedText
+                  variant="title"
+                  style={{ color: gradeColor, fontWeight: "700" }}
+                >
+                  {grade.finalPercentage}%
+                </ThemedText>
+                <ThemedText
+                  variant="display"
+                  style={{ color: gradeColor, fontWeight: "800" }}
+                >
+                  {grade.letterGrade}
+                </ThemedText>
+              </>
+            ) : (
+              <ThemedText variant="title" muted>
+                No grades yet
+              </ThemedText>
+            )}
           </View>
         </ScaleInView>
       </View>
@@ -155,7 +175,7 @@ export default function GradesScreen() {
       <EmptyState
         icon={ClipboardList}
         title="No grades yet"
-        message="Your weighted grades will appear here once your teacher sets up grade categories and grades your work."
+        message="Your grades will appear here once your teacher grades your quizzes and activities."
       />
     );
   };

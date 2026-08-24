@@ -210,22 +210,34 @@ export type GradeEntry = {
   graded_at: string;
 };
 
-/** Per-category breakdown returned by final_grades(). */
+/** Per-category breakdown returned by final_grades().
+ *
+ * Categories are organizational metadata only — they never affect the final
+ * grade. `percentage` is null when the category has no graded activities for
+ * that student (so the UI can show "No graded activities" without implying a
+ * penalizing 0%).
+ */
 export type CategoryBreakdown = {
+  categoryId?: string;
   categoryName: string;
-  weight: number;
-  percentage: number;
+  percentage: number | null;
   score: number;
   maxScore: number;
 };
 
-/** A student's final grade result from the final_grades() RPC. */
+/** A student's final grade result from the final_grades() RPC.
+ *
+ * `finalPercentage`/`letterGrade` are null when the student has no graded
+ * activities yet (the UI shows an empty state, not 0%).
+ */
 export type FinalGrade = {
   studentId: string;
   studentName: string;
   categoryBreakdown: CategoryBreakdown[];
-  finalPercentage: number;
-  letterGrade: string;
+  pointsEarned: number;
+  pointsPossible: number;
+  finalPercentage: number | null;
+  letterGrade: string | null;
 };
 
 // ---------------------------------------------------------------------------

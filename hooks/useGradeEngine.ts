@@ -46,7 +46,7 @@ export function useGradeCategories(classId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// useSaveGradeCategories — upsert categories with weight validation
+// useSaveGradeCategories — upsert categories (organizational metadata)
 // ---------------------------------------------------------------------------
 
 export function useSaveGradeCategories(classId: string) {
@@ -54,18 +54,13 @@ export function useSaveGradeCategories(classId: string) {
 
   const save = useCallback(
     async (
-      items: { id?: string; name: string; weight: number }[],
+      items: { id?: string; name: string }[],
     ): Promise<{ success: boolean; error?: string }> => {
       if (!classId) return { success: false, error: "No class ID" };
 
-      // Validate weights sum to 100
-      const total = items.reduce((sum, item) => sum + item.weight, 0);
-      if (Math.abs(total - 100) > 0.01) {
-        return {
-          success: false,
-          error: `Weights must sum to 100%. Current total: ${total}%`,
-        };
-      }
+      // NOTE: Categories are organizational metadata only. Their existence (and
+      // any stored `weight` value) NEVER affects final grades, which are
+      // points-based. So we no longer validate that weights sum to 100.
 
       setSaving(true);
 
@@ -97,7 +92,7 @@ export function useSaveGradeCategories(classId: string) {
         if (item.id) {
           const { error: updError } = await supabase
             .from("grade_categories")
-            .update({ name: item.name, weight: item.weight })
+            .update({ name: item.name })
             .eq("id", item.id);
 
           if (updError) {
@@ -111,7 +106,6 @@ export function useSaveGradeCategories(classId: string) {
             .insert({
               class_id: classId,
               name: item.name,
-              weight: item.weight,
             });
 
           if (insError) {
@@ -275,6 +269,8 @@ export function useFinalGrades(classId: string) {
         studentName: row.student_name,
         categoryBreakdown: (row.category_breakdown ??
           []) as CategoryBreakdown[],
+        pointsEarned: row.points_earned ?? 0,
+        pointsPossible: row.points_possible ?? 0,
         finalPercentage: row.final_percentage,
         letterGrade: row.letter_grade,
       }));
@@ -347,6 +343,8 @@ export function useStudentFinalGrades() {
           studentName: row.student_name,
           categoryBreakdown: (row.category_breakdown ??
             []) as CategoryBreakdown[],
+          pointsEarned: row.points_earned ?? 0,
+          pointsPossible: row.points_possible ?? 0,
           finalPercentage: row.final_percentage,
           letterGrade: row.letter_grade,
           classId,

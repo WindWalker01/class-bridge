@@ -455,25 +455,40 @@ create trigger quizzes_after_insert_feed
   for each row execute function public.trg_quiz_inserted_feed();
 
 -- ============================================================================
--- RPC: final_grades(class_id) — weighted final grade calculation
+-- RPC: final_grades(class_id) — points-based final grade calculation
+--
+-- The final grade is derived ONLY from a student's actual earned points divided
+-- by the total points possible across activities they have been graded on.
+-- Categories are organizational metadata: they never contribute points or
+-- percentage weight to the final grade. An unused / empty category contributes
+-- 0 possible points and never lowers a grade.
 -- ============================================================================
+
+-- The return type changed (added points_earned / points_possible), so the old
+-- function must be dropped before re-creating it (CREATE OR REPLACE cannot
+-- alter the return type of an existing function).
+drop function if exists public.final_grades(p_class_id uuid);
+drop function if exists public.student_final_grade(p_class_id uuid, p_student_id uuid);
 
 create or replace function public.final_grades(p_class_id uuid)
 returns table(
   student_id          uuid,
   student_name        text,
   category_breakdown  jsonb,
+  points_earned       numeric,
+  points_possible     numeric,
   final_percentage    numeric,
   letter_grade        text
 ) as $$
 declare
   v_cat record;
   v_student record;
-  v_cat_pct numeric;
-  v_final_pct numeric;
   v_breakdown jsonb[];
   v_cat_score numeric;
   v_cat_max numeric;
+  v_earned numeric;
+  v_possible numeric;
+  v_pct numeric;
 begin
   -- Loop over each enrolled student
   for v_student in
@@ -482,55 +497,75 @@ begin
     join public.profiles p on p.id = cm.student_id
     where cm.class_id = p_class_id
   loop
-    v_final_pct := 0;
     v_breakdown := array[]::jsonb[];
 
-    -- Loop over each grade category for this class
+    -- 1. Loop over each grade category for this class to build the DISPLAY
+    --    breakdown. Categories never affect the final grade; they only group
+    --    the student's graded work. Only activities with a valid max_score and
+    --    an actual grade row for this student are counted, so an empty
+    --    category contributes 0 possible points (and 0 earned points).
     for v_cat in
-      select gc.id, gc.name, gc.weight
+      select gc.id, gc.name
       from public.grade_categories gc
       where gc.class_id = p_class_id
       order by gc.created_at
     loop
-      -- Sum scores and max_scores for this student in this category
       select
         coalesce(sum(g.score), 0),
         coalesce(sum(gi.max_score), 0)
       into v_cat_score, v_cat_max
       from public.graded_items gi
-      left join public.grades g on g.graded_item_id = gi.id and g.student_id = v_student.id
-      where gi.category_id = v_cat.id;
+      join public.grades g on g.graded_item_id = gi.id and g.student_id = v_student.id
+      where gi.class_id = p_class_id
+        and gi.category_id = v_cat.id
+        and gi.max_score > 0;
 
-      -- Category percentage (0 if no items or max is 0)
-      if v_cat_max > 0 then
-        v_cat_pct := round((v_cat_score / v_cat_max) * 100, 2);
-      else
-        v_cat_pct := 0;
-      end if;
-
-      -- Accumulate weighted contribution
-      v_final_pct := v_final_pct + (v_cat_pct * v_cat.weight / 100);
-
-      -- Build breakdown entry
       v_breakdown := array_append(v_breakdown, jsonb_build_object(
+        'categoryId', v_cat.id,
         'categoryName', v_cat.name,
-        'weight', v_cat.weight,
-        'percentage', v_cat_pct,
         'score', v_cat_score,
-        'maxScore', v_cat_max
+        'maxScore', v_cat_max,
+        'percentage',
+          case when v_cat_max > 0
+            then round((v_cat_score / v_cat_max) * 100, 2)
+            else null
+          end
       ));
     end loop;
 
-    -- Round final percentage
-    v_final_pct := round(v_final_pct, 2);
+    -- 2. Sum the student's earned points and the total possible points across
+    --    EVERY graded activity in the class where the student has a grade,
+    --    regardless of category. Only items with a valid max_score count.
+    select
+      coalesce(sum(g.score), 0),
+      coalesce(sum(gi.max_score), 0)
+    into v_earned, v_possible
+    from public.graded_items gi
+    join public.grades g on g.graded_item_id = gi.id and g.student_id = v_student.id
+    where gi.class_id = p_class_id
+      and gi.max_score > 0;
+
+    -- 3. Compute the final percentage from actual points.
+    --    If the student has no graded activities (v_possible = 0), report a
+    --    NULL final percentage and letter grade so the UI can show an empty
+    --    state ("No grades yet") instead of a misleading 0%.
+    if v_possible > 0 then
+      v_pct := round((v_earned / v_possible) * 100, 2);
+    else
+      v_pct := null;
+    end if;
 
     return query
     select
       v_student.id,
       v_student.full_name,
       array_to_json(v_breakdown)::jsonb,
-      v_final_pct,
-      public.get_letter_grade(v_final_pct);
+      v_earned,
+      v_possible,
+      v_pct,
+      case when v_pct is null then null
+           else public.get_letter_grade(v_pct)
+      end;
   end loop;
 end;
 $$ language plpgsql stable security definer;
@@ -544,6 +579,8 @@ returns table(
   student_id          uuid,
   student_name        text,
   category_breakdown  jsonb,
+  points_earned       numeric,
+  points_possible     numeric,
   final_percentage    numeric,
   letter_grade        text
 ) as $$

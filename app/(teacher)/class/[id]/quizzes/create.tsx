@@ -456,9 +456,6 @@ export default function CreateQuizScreen() {
                         >
                           {cat.name}
                         </ThemedText>
-                        <ThemedText variant="small" muted>
-                          {cat.weight}%
-                        </ThemedText>
                       </Pressable>
                     );
                   })}

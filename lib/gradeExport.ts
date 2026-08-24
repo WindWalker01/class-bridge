@@ -11,6 +11,7 @@ export type GradeColumnType =
   | "student"
   | "score"
   | "category"
+  | "points"
   | "final"
   | "letter";
 

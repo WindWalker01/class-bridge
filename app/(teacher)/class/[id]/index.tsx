@@ -664,7 +664,7 @@ export default function ClassFeedScreen() {
                   variant="small"
                   style={{ color: accent.accentText, fontWeight: "600" }}
                 >
-                  Weights
+                  Categories
                 </ThemedText>
               </Pressable>
             </View>
