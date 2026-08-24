@@ -1,4 +1,5 @@
-﻿/**
+﻿/* eslint-disable react-hooks/preserve-manual-memoization */
+/**
  * Shared Settings / Profile screen used by both (teacher) and (student) route
  * groups.  Accepts a `role` prop so role-specific accent colours and the
  * correct sign-out redirect are applied from a single component.
@@ -9,8 +10,8 @@
  *   2. Account  - change password, sign out
  *   3. Preferences - placeholder section ready for Part F's theme toggle
  */
-import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -25,18 +26,17 @@ import { Avatar } from "@/components/Avatar";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { FadeInUp } from "@/components/animations/entry";
 import { IconButton } from "@/components/IconButton";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { ThemedText } from "@/components/ThemedText";
 import { useToast } from "@/components/Toast";
 import { usePressAnimation } from "@/components/animations";
-import { useTheme } from "@/hooks/useTheme";
-import type { ThemeMode } from "@/hooks/useTheme";
+import { FadeInUp } from "@/components/animations/entry";
 import { radii, spacing } from "@/constants/theme";
+import type { ThemeMode } from "@/hooks/useTheme";
+import { useTheme } from "@/hooks/useTheme";
 import { haptics } from "@/lib/haptics";
-import { Routes } from "@/lib/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { Role } from "@/types";
@@ -155,6 +155,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
   }, [nameValue, profile?.full_name, updateProfile, showToast]);
 
   /** Change password via Supabase Auth. */
+
   const handleChangePassword = useCallback(async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       showToast("Please fill in all password fields", { type: "error" });
@@ -239,13 +240,14 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
     return (
       <Pressable onPress={onPress} onPressIn={pressIn} onPressOut={pressOut}>
         <Animated.View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            paddingVertical: spacing.sm + 2,
-            ...(animatedStyle as any),
-          }}
+          style={[
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: spacing.sm + 2,
+            },
+            animatedStyle as any,
+          ]}
         >
           <View
             style={{
@@ -255,6 +257,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
               backgroundColor: accent.accentSoft,
               alignItems: "center",
               justifyContent: "center",
+              marginRight: spacing.md,
             }}
           >
             <Icon size={20} color={accent.accentText} strokeWidth={1.8} />
@@ -269,11 +272,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
               </ThemedText>
             ) : null}
           </View>
-          <ChevronRight
-            size={18}
-            color={colors.textSubtle}
-            strokeWidth={1.8}
-          />
+          <ChevronRight size={18} color={colors.textSubtle} strokeWidth={1.8} />
         </Animated.View>
       </Pressable>
     );
@@ -311,6 +310,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
                 onPress={() => router.back()}
                 color={colors.text}
                 size={24}
+                style={{ marginRight: spacing.md }}
               />
               <ThemedText variant="heading">Settings</ThemedText>
             </View>
@@ -320,7 +320,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
           <FadeInUp delay={50}>
             <Card variant="elevated" padding="lg">
               {/* Avatar row */}
-              <View style={{ alignItems: "center", gap: spacing.sm }}>
+              <View style={{ alignItems: "center" }}>
                 <Pressable
                   onPress={handleChangeAvatar}
                   accessibilityLabel="Change avatar photo"
@@ -358,7 +358,11 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
                     </View>
                   </View>
                 </Pressable>
-                <ThemedText variant="caption" muted>
+                <ThemedText
+                  variant="caption"
+                  muted
+                  style={{ marginTop: spacing.sm }}
+                >
                   Tap to change photo
                 </ThemedText>
               </View>
@@ -373,11 +377,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
                     autoFocus
                   />
                   <View
-                    style={{
-                      flexDirection: "row",
-                      gap: spacing.sm,
-                      justifyContent: "flex-end",
-                    }}
+                    style={{ flexDirection: "row", justifyContent: "flex-end" }}
                   >
                     <Button
                       label="Cancel"
@@ -413,7 +413,12 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
                   <ThemedText variant="title">
                     {profile?.full_name ?? "Set your name"}
                   </ThemedText>
-                  <User size={16} color={colors.textMuted} strokeWidth={1.8} />
+                  <User
+                    size={16}
+                    color={colors.textMuted}
+                    strokeWidth={1.8}
+                    style={{ marginLeft: spacing.xs }}
+                  />
                 </Pressable>
               )}
 
@@ -425,7 +430,16 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
               </View>
 
               {/* Role badge */}
-              <View style={{ alignItems: "center", marginTop: spacing.sm }}>
+              <View
+                style={{
+                  alignItems: "center",
+                  marginTop: spacing.sm,
+                  alignSelf: "center",
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.xs,
+                  borderRadius: radii.pill,
+                }}
+              >
                 <Badge
                   label={role === "teacher" ? "Teacher" : "Student"}
                   tone={role === "teacher" ? "accent" : "success"}
@@ -436,7 +450,10 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
           {/* -- Account actions -- */}
           <FadeInUp delay={100}>
             <Card variant="elevated" padding="md">
-              <ThemedText variant="heading" style={{ marginBottom: spacing.sm }}>
+              <ThemedText
+                variant="heading"
+                style={{ marginBottom: spacing.sm }}
+              >
                 Account
               </ThemedText>
 
@@ -445,14 +462,14 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
                 <View style={{ gap: spacing.sm, marginBottom: spacing.sm }}>
                   <TextField
                     label="Current password"
-                    placeholder="��������"
+                    placeholder="*********"
                     secureTextEntry
                     value={currentPassword}
                     onChangeText={setCurrentPassword}
                   />
                   <TextField
                     label="New password"
-                    placeholder="At least 6 characters"
+                    placeholder="*********"
                     secureTextEntry
                     value={newPassword}
                     onChangeText={setNewPassword}
@@ -465,11 +482,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
                     onChangeText={setConfirmPassword}
                   />
                   <View
-                    style={{
-                      flexDirection: "row",
-                      gap: spacing.sm,
-                      justifyContent: "flex-end",
-                    }}
+                    style={{ flexDirection: "row", justifyContent: "flex-end" }}
                   >
                     <Button
                       label="Cancel"
@@ -484,7 +497,9 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
                     <Button
                       label="Change"
                       loading={savingPassword}
-                      disabled={!currentPassword || !newPassword || !confirmPassword}
+                      disabled={
+                        !currentPassword || !newPassword || !confirmPassword
+                      }
                       onPress={() => void handleChangePassword()}
                     />
                   </View>
@@ -522,12 +537,19 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
           {/* -- Preferences (placeholder for Part F) -- */}
           <FadeInUp delay={150}>
             <Card variant="elevated" padding="md">
-              <ThemedText variant="heading" style={{ marginBottom: spacing.sm }}>
+              <ThemedText
+                variant="heading"
+                style={{ marginBottom: spacing.sm }}
+              >
                 Preferences
               </ThemedText>
 
-{/* Theme Toggle */}
-              <ThemedText variant="small" muted style={{ marginBottom: spacing.sm }}>
+              {/* Theme Toggle */}
+              <ThemedText
+                variant="small"
+                muted
+                style={{ marginBottom: spacing.sm }}
+              >
                 Appearance
               </ThemedText>
               <View
@@ -592,11 +614,7 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
                     justifyContent: "center",
                   }}
                 >
-                  <Star
-                    size={20}
-                    color={accent.accentText}
-                    strokeWidth={1.8}
-                  />
+                  <Star size={20} color={accent.accentText} strokeWidth={1.8} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <ThemedText variant="body" style={{ fontWeight: "500" }}>
@@ -623,4 +641,3 @@ export default function SettingsScreen({ role }: SettingsScreenProps) {
     </Screen>
   );
 }
-

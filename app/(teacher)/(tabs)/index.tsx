@@ -1,12 +1,7 @@
 import { router, useFocusEffect } from "expo-router";
 import { Archive, Plus } from "lucide-react-native";
 import { useCallback } from "react";
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  View,
-} from "react-native";
+import { FlatList, Pressable, RefreshControl, View } from "react-native";
 
 import {
   AnimatedListItem,
@@ -22,8 +17,8 @@ import { Avatar } from "@/components/Avatar";
 import { radii, spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useTeacherClasses } from "@/hooks/useClasses";
-import { useTheme } from "@/hooks/useTheme";
 import { useResponsive } from "@/hooks/useResponsive";
+import { useTheme } from "@/hooks/useTheme";
 import { Routes } from "@/lib/navigation";
 import type { ClassWithCount } from "@/types";
 
@@ -101,7 +96,13 @@ export default function TeacherHomeScreen() {
               {classes.length} {classes.length === 1 ? "class" : "classes"}
             </ThemedText>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing.sm,
+            }}
+          >
             <Pressable
               onPress={() => router.push(Routes.teacherArchivedClasses)}
               style={{
@@ -182,11 +183,11 @@ export default function TeacherHomeScreen() {
         {/* FAB — Create Class */}
         <IconButton
           icon={Plus}
+          backgroundColor={colors.primary}
           variant="filled"
-          backgroundColor={accent.accent}
-          color={colors.white}
           size={28}
           onPress={() => router.push(Routes.createClass)}
+          color={colors.primary}
           style={{
             position: "absolute",
             bottom: spacing.lg,

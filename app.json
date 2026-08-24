@@ -2,7 +2,7 @@
   "expo": {
     "name": "ClassBridge",
     "slug": "class-bridge",
-    "version": "1.0.0",
+    "version": "5.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/graduation-cap.png",
     "scheme": "classbridge",
@@ -49,6 +49,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "11225073-b367-4386-b1a1-9ef70e161dfd"
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 import {
   ActivityIndicator,
   Text,
+  View,
   type GestureResponderEvent,
   type PressableProps,
   type StyleProp,
@@ -8,9 +9,9 @@ import {
 } from "react-native";
 import Animated from "react-native-reanimated";
 
+import { usePressAnimation } from "@/components/animations";
 import { radii, spacing, typography } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { usePressAnimation } from "@/components/animations";
 
 type Variant = "primary" | "secondary" | "ghost";
 
@@ -86,7 +87,6 @@ export function Button({
     opacity: isDisabled ? 0.5 : 1,
     alignSelf: fullWidth ? "stretch" : "flex-start",
     flexDirection: "row",
-    gap: spacing.sm,
   };
 
   if (variant === "secondary") {
@@ -96,7 +96,11 @@ export function Button({
 
   return (
     <Animated.View
-      style={[baseStyle, !isDisabled ? (animatedStyle as any) : {}, style as any]}
+      style={[
+        baseStyle,
+        !isDisabled ? (animatedStyle as any) : {},
+        style as any,
+      ]}
       onTouchStart={!isDisabled ? pressIn : undefined}
       onTouchEnd={!isDisabled ? handleTouchEnd : undefined}
       onTouchCancel={!isDisabled ? pressOut : undefined}
@@ -106,7 +110,9 @@ export function Button({
         <ActivityIndicator color={textColorFor(variant, colors)} size="small" />
       ) : (
         <>
-          {leftIcon}
+          {leftIcon ? (
+            <View style={{ marginRight: spacing.sm }}>{leftIcon}</View>
+          ) : null}
           <Text
             style={[
               typography.body,

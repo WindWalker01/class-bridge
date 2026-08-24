@@ -66,8 +66,33 @@ export function IconButton({
   const bg =
     backgroundColor ?? (variant === "filled" ? colors.primary : "transparent");
 
+  // Choose an icon color that has good contrast against the background.
+  // If a `color` prop is provided, prefer it. Otherwise, for filled
+  // variants pick white or dark text depending on background luminance.
+  function hexToRgb(hex?: string) {
+    if (!hex) return null;
+    const match = hex.replace(/\s+/g, "").match(/^#?([a-fA-F0-9]{6})$/);
+    if (!match) return null;
+    const int = parseInt(match[1], 16);
+    return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
+  }
+
+  function isLightColor(hex?: string) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return false;
+    // Perceived luminance (0-255). Threshold ~186 works well for contrast.
+    const lum = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+    return lum > 186;
+  }
+
   const iconColor =
-    color ?? (variant === "filled" ? colors.white : colors.textMuted);
+    color ??
+    (variant === "filled"
+      ? // If background is light use dark text, otherwise use white
+        isLightColor(bg)
+        ? colors.text
+        : colors.white
+      : colors.textMuted);
 
   const { animatedStyle, pressIn, pressOut } = usePressAnimation({
     hapticOnPress: !disabled,
